@@ -101,7 +101,7 @@ export const translations = {
     skip: "Pular",
     recentEntries: "Transações Recentes",
     noEntries: "Ainda não há transações.",
-    aiChat: "Assistente Financeiro IA",
+    aiChat: "Assistente Financiero IA",
     analyzeImage: "Analisar Fatura",
     calculators: "Calculadoras",
     reminders: "Lembretes",
