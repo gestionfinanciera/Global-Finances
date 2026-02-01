@@ -21,13 +21,24 @@ export interface Account {
   description: string;
 }
 
+export interface JournalEntryPart {
+  accountId: string;
+  amount: number;
+}
+
 export interface JournalEntry {
   id: string;
   date: string;
   description: string;
-  debitAccount: string; // Account ID
-  creditAccount: string; // Account ID
-  amount: number;
+  amount: number; // Total amount (Sum of debits)
+  
+  // Simple entry fields (kept for backward compatibility and simple forms)
+  debitAccount?: string; 
+  creditAccount?: string;
+  
+  // Multi-line support
+  debitParts?: JournalEntryPart[];
+  creditParts?: JournalEntryPart[];
 }
 
 export interface Reminder {

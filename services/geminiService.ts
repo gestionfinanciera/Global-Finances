@@ -1,5 +1,6 @@
 
 import { GoogleGenAI, GenerateContentResponse, Type } from "@google/genai";
+import { CHART_OF_ACCOUNTS } from "../accounts";
 
 const API_KEY = process.env.API_KEY;
 
@@ -14,15 +15,56 @@ export const geminiService = {
         systemInstruction: `You are a professional financial advisor and accounting teacher for the "Global Finances" app. 
         Your goal is to help users manage their money and understand double-entry bookkeeping. 
         Keep answers clear, educational, and professional. 
-        If the user asks about the app, explain it uses Assets, Liabilities, Equity, Income, and Expenses.`,
+        The app uses the following rules:
+        - Assets (Activos) and Expenses (Gastos): Increase on DEBIT (Debe), Decrease on CREDIT (Haber).
+        - Liabilities (Pasivos), Equity (Patrimonio), and Income (Resultados +): Increase on CREDIT (Haber), Decrease on DEBIT (Debe).
+        Every transaction must balance (Double Entry).`,
       },
     });
 
-    // Note: The GenAI SDK chat.sendMessage does not handle history directly in the simple way; 
-    // Usually we'd use a single prompt with context or properly initialize the chat with history.
-    // For simplicity, we'll send the message.
     const response = await chat.sendMessage({ message });
     return response.text || "Sorry, I couldn't process that.";
+  },
+
+  async predictAccounts(description: string): Promise<{ debitAccount: string, creditAccount: string } | null> {
+    if (!API_KEY) throw new Error("API Key not found");
+    const ai = new GoogleGenAI({ apiKey: API_KEY });
+
+    const accountContext = CHART_OF_ACCOUNTS.map(a => `${a.id}: ${a.name} (${a.type})`).join(", ");
+
+    const prompt = `Based on this professional accounting transaction description: "${description}", select the most appropriate Debit (Debe) and Credit (Haber) account IDs.
+    
+    ACCOUNTING RULES:
+    - DEBIT (Debe): Increase in ASSETS or EXPENSES, or decrease in LIABILITIES/EQUITY.
+    - CREDIT (Haber): Increase in LIABILITIES, EQUITY, or INCOME, or decrease in ASSETS.
+    
+    AVAILABLE ACCOUNTS: [${accountContext}].
+    
+    Return ONLY a JSON object with 'debitAccount' and 'creditAccount' keys containing the exact account IDs.`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview', 
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            debitAccount: { type: Type.STRING },
+            creditAccount: { type: Type.STRING }
+          },
+          required: ["debitAccount", "creditAccount"]
+        }
+      }
+    });
+
+    try {
+      const text = response.text.trim();
+      return JSON.parse(text);
+    } catch (e) {
+      console.error("Failed to parse prediction JSON", e);
+      return null;
+    }
   },
 
   async analyzeReceipt(base64Image: string): Promise<any> {
@@ -33,7 +75,7 @@ export const geminiService = {
     - amount (number)
     - date (YYYY-MM-DD)
     - description (string, summary of what was bought)
-    - recommendedAccount (string, one of: acc_supplies, acc_utilities, acc_rent, acc_other_exp, acc_salaries, acc_sales)`;
+    - recommendedAccount (string, one of the account IDs from the system)`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
