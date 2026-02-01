@@ -1,0 +1,7 @@
+{
+  "name": "Global Finances",
+  "description": "A comprehensive personal finance and accounting education tool featuring double-entry bookkeeping, visual reports, AI-powered financial assistance, and receipt analysis.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
