@@ -67,6 +67,78 @@ export const geminiService = {
     }
   },
 
+  async analyzeLedger(base64Image: string): Promise<any[]> {
+    if (!API_KEY) throw new Error("API Key not found");
+    const ai = new GoogleGenAI({ apiKey: API_KEY });
+
+    const accountContext = CHART_OF_ACCOUNTS.map(a => `${a.id}: ${a.name}`).join(", ");
+
+    const prompt = `Analyze this handwritten or printed accounting ledger (Libro Diario). 
+    Extract ALL journal entries visible in the image.
+    For each entry, extract:
+    - date (YYYY-MM-DD format, estimate year as current if not present)
+    - description (text in 'Detalle' column, e.g., 'Venta mercadería')
+    - debitParts: list of objects with { accountId (match from system accounts), amount (number) }
+    - creditParts: list of objects with { accountId (match from system accounts), amount (number) }
+    
+    SYSTEM ACCOUNT IDS: [${accountContext}]. Try to map the names in the image to these IDs.
+    
+    Return a JSON array of objects. Ensure Debe equals Haber for each entry.`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-pro-preview',
+      contents: {
+        parts: [
+          { inlineData: { data: base64Image, mimeType: 'image/jpeg' } },
+          { text: prompt }
+        ]
+      },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              date: { type: Type.STRING },
+              description: { type: Type.STRING },
+              debitParts: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    accountId: { type: Type.STRING },
+                    amount: { type: Type.NUMBER }
+                  },
+                  required: ["accountId", "amount"]
+                }
+              },
+              creditParts: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    accountId: { type: Type.STRING },
+                    amount: { type: Type.NUMBER }
+                  },
+                  required: ["accountId", "amount"]
+                }
+              }
+            },
+            required: ["date", "description", "debitParts", "creditParts"]
+          }
+        }
+      }
+    });
+
+    try {
+      return JSON.parse(response.text.trim());
+    } catch (e) {
+      console.error("Failed to parse Ledger JSON", e);
+      return [];
+    }
+  },
+
   async analyzeReceipt(base64Image: string): Promise<any> {
     if (!API_KEY) throw new Error("API Key not found");
     const ai = new GoogleGenAI({ apiKey: API_KEY });
