@@ -12,13 +12,15 @@ import {
   Menu,
   X,
   Trash2,
-  Globe
+  Globe,
+  TrendingUp
 } from 'lucide-react';
-import { AppState, Language, JournalEntry, Reminder } from './types';
+import { AppState, Language, JournalEntry, Reminder, CashFlowItem } from './types';
 import { translations } from './translations';
 import { CHART_OF_ACCOUNTS } from './accounts';
 import Dashboard from './components/Dashboard';
 import Journal from './components/Journal';
+import CashFlow from './components/CashFlow';
 import Reports from './components/Reports';
 import Education from './components/Education';
 import EntryForm from './components/EntryForm';
@@ -33,10 +35,15 @@ const App: React.FC = () => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
-      return { ...parsed, theme: 'dark' }; // Force dark theme on load
+      return { 
+        ...parsed, 
+        theme: 'dark', 
+        cashFlowItems: parsed.cashFlowItems || [] // Handle legacy data
+      };
     }
     return {
       entries: [],
+      cashFlowItems: [],
       reminders: [],
       language: Language.ES,
       theme: 'dark',
@@ -83,12 +90,32 @@ const App: React.FC = () => {
     if (window.confirm(t.warningReset)) {
       setState({
         entries: [],
+        cashFlowItems: [],
         reminders: [],
         language: state.language,
         theme: 'dark',
         isOnboarded: true
       });
     }
+  };
+
+  // Cash Flow Actions
+  const addCashFlowItem = (item: Omit<CashFlowItem, 'id'>) => {
+    const newItem = { ...item, id: crypto.randomUUID() };
+    setState(prev => ({ ...prev, cashFlowItems: [...prev.cashFlowItems, newItem] }));
+  };
+
+  const deleteCashFlowItem = (id: string) => {
+    setState(prev => ({ ...prev, cashFlowItems: prev.cashFlowItems.filter(i => i.id !== id) }));
+  };
+
+  const toggleCashFlowStatus = (id: string) => {
+    setState(prev => ({
+      ...prev,
+      cashFlowItems: prev.cashFlowItems.map(i => 
+        i.id === id ? { ...i, status: i.status === 'pending' ? 'realized' : 'pending' } : i
+      )
+    }));
   };
 
   const changeLanguage = (lang: Language) => {
@@ -107,6 +134,14 @@ const App: React.FC = () => {
     switch (activeTab) {
       case 'dashboard': return <Dashboard state={state} onAddClick={() => setIsEntryModalOpen(true)} />;
       case 'journal': return <Journal entries={state.entries} onDelete={deleteEntry} onReset={resetJournal} language={state.language} />;
+      case 'cashFlow': return (
+        <CashFlow 
+          state={state} 
+          onAddItem={addCashFlowItem} 
+          onDeleteItem={deleteCashFlowItem}
+          onToggleStatus={toggleCashFlowStatus}
+        />
+      );
       case 'reports': return <Reports entries={state.entries} language={state.language} />;
       case 'education': return <Education language={state.language} />;
       case 'settings': return (
@@ -150,6 +185,7 @@ const App: React.FC = () => {
   const navItems = [
     { id: 'dashboard', label: t.dashboard, icon: LayoutDashboard },
     { id: 'journal', label: t.journal, icon: BookOpen },
+    { id: 'cashFlow', label: t.cashFlow, icon: TrendingUp },
     { id: 'reports', label: t.reports, icon: PieChart },
     { id: 'education', label: t.education, icon: GraduationCap },
     { id: 'settings', label: t.settings, icon: Settings },

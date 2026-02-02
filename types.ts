@@ -41,6 +41,17 @@ export interface JournalEntry {
   creditParts?: JournalEntryPart[];
 }
 
+export interface CashFlowItem {
+  id: string;
+  type: 'income' | 'expense';
+  description: string;
+  amount: number;
+  date: string;
+  category: string;
+  isRecurring: boolean;
+  status: 'pending' | 'realized';
+}
+
 export interface Reminder {
   id: string;
   title: string;
@@ -51,6 +62,7 @@ export interface Reminder {
 
 export interface AppState {
   entries: JournalEntry[];
+  cashFlowItems: CashFlowItem[];
   reminders: Reminder[];
   language: Language;
   theme: 'light' | 'dark';
