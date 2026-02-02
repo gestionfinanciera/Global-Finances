@@ -30,13 +30,9 @@ export interface JournalEntry {
   id: string;
   date: string;
   description: string;
-  amount: number; // Total amount (Sum of debits)
-  
-  // Simple entry fields (kept for backward compatibility and simple forms)
+  amount: number;
   debitAccount?: string; 
   creditAccount?: string;
-  
-  // Multi-line support
   debitParts?: JournalEntryPart[];
   creditParts?: JournalEntryPart[];
 }
@@ -53,13 +49,46 @@ export interface CashFlowItem {
 }
 
 export interface BudgetCategory {
-  accountId: string; // Map budget to an account (usually Expense)
+  accountId: string;
   budgeted: number;
 }
 
 export interface MonthlyBudget {
-  month: string; // YYYY-MM
+  month: string;
   categories: BudgetCategory[];
+}
+
+// --- Nuevos Tipos para Clientes y Proveedores ---
+export type PartnerType = 'client' | 'supplier';
+
+export interface Partner {
+  id: string;
+  type: PartnerType;
+  name: string;
+  fantasyName?: string;
+  taxId: string; // CUIT/CUIL
+  taxCondition: string;
+  address?: string;
+  city?: string;
+  phone?: string;
+  email: string;
+  contactPerson?: string;
+  creditLimit: number;
+  creditDays: number;
+  observations?: string;
+  active: boolean;
+}
+
+export interface PartnerMovement {
+  id: string;
+  partnerId: string;
+  type: 'invoice' | 'payment' | 'credit_note' | 'debit_note';
+  documentNumber: string;
+  date: string;
+  dueDate: string;
+  amount: number; // Monto absoluto
+  observations?: string;
+  status: 'pending' | 'paid' | 'overdue';
 }
 
 export interface Reminder {
@@ -74,6 +103,8 @@ export interface AppState {
   entries: JournalEntry[];
   cashFlowItems: CashFlowItem[];
   budgets: MonthlyBudget[];
+  partners: Partner[];
+  partnerMovements: PartnerMovement[];
   reminders: Reminder[];
   language: Language;
   theme: 'light' | 'dark';

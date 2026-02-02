@@ -12,17 +12,17 @@ import {
   Menu,
   X,
   Trash2,
-  Globe,
   TrendingUp,
-  Target
+  Target,
+  Users
 } from 'lucide-react';
-import { AppState, Language, JournalEntry, Reminder, CashFlowItem, MonthlyBudget } from './types';
+import { AppState, Language, JournalEntry, CashFlowItem, MonthlyBudget, Partner, PartnerMovement } from './types';
 import { translations } from './translations';
-import { CHART_OF_ACCOUNTS } from './accounts';
 import Dashboard from './components/Dashboard';
 import Journal from './components/Journal';
 import CashFlow from './components/CashFlow';
 import Budget from './components/Budget';
+import Partners from './components/Partners';
 import Reports from './components/Reports';
 import Education from './components/Education';
 import EntryForm from './components/EntryForm';
@@ -30,7 +30,7 @@ import ChatBot from './components/ChatBot';
 import ImageAnalyzer from './components/ImageAnalyzer';
 import Onboarding from './components/Onboarding';
 
-const STORAGE_KEY = 'global_finances_data';
+const STORAGE_KEY = 'global_finances_data_v2';
 
 const App: React.FC = () => {
   const [state, setState] = useState<AppState>(() => {
@@ -40,14 +40,17 @@ const App: React.FC = () => {
       return { 
         ...parsed, 
         theme: 'dark', 
-        cashFlowItems: parsed.cashFlowItems || [],
-        budgets: parsed.budgets || []
+        language: Language.ES, // Forzar español
+        partners: parsed.partners || [],
+        partnerMovements: parsed.partnerMovements || []
       };
     }
     return {
       entries: [],
       cashFlowItems: [],
       budgets: [],
+      partners: [],
+      partnerMovements: [],
       reminders: [],
       language: Language.ES,
       theme: 'dark',
@@ -66,7 +69,7 @@ const App: React.FC = () => {
     document.documentElement.classList.add('dark');
   }, [state]);
 
-  const t = translations[state.language];
+  const t = translations[Language.ES];
 
   const addEntry = (entry: Omit<JournalEntry, 'id'>) => {
     const newEntry = { ...entry, id: crypto.randomUUID() };
@@ -96,46 +99,33 @@ const App: React.FC = () => {
         entries: [],
         cashFlowItems: [],
         budgets: [],
+        partners: [],
+        partnerMovements: [],
         reminders: [],
-        language: state.language,
+        language: Language.ES,
         theme: 'dark',
         isOnboarded: true
       });
     }
   };
 
-  // Cash Flow Actions
-  const addCashFlowItem = (item: Omit<CashFlowItem, 'id'>) => {
-    const newItem = { ...item, id: crypto.randomUUID() };
-    setState(prev => ({ ...prev, cashFlowItems: [...prev.cashFlowItems, newItem] }));
+  // Acciones de Clientes/Proveedores
+  const addPartner = (partner: Omit<Partner, 'id'>) => {
+    const newPartner = { ...partner, id: crypto.randomUUID() };
+    setState(prev => ({ ...prev, partners: [...prev.partners, newPartner] }));
   };
 
-  const deleteCashFlowItem = (id: string) => {
-    setState(prev => ({ ...prev, cashFlowItems: prev.cashFlowItems.filter(i => i.id !== id) }));
+  const addPartnerMovement = (mov: Omit<PartnerMovement, 'id'>) => {
+    const newMov = { ...mov, id: crypto.randomUUID() };
+    setState(prev => ({ ...prev, partnerMovements: [...prev.partnerMovements, newMov] }));
   };
 
-  const toggleCashFlowStatus = (id: string) => {
-    setState(prev => ({
-      ...prev,
-      cashFlowItems: prev.cashFlowItems.map(i => 
-        i.id === id ? { ...i, status: i.status === 'pending' ? 'realized' : 'pending' } : i
-      )
+  const deletePartner = (id: string) => {
+    setState(prev => ({ 
+      ...prev, 
+      partners: prev.partners.filter(p => p.id !== id),
+      partnerMovements: prev.partnerMovements.filter(m => m.partnerId !== id)
     }));
-  };
-
-  // Budget Actions
-  const updateBudget = (budget: MonthlyBudget) => {
-    setState(prev => {
-      const idx = prev.budgets.findIndex(b => b.month === budget.month);
-      const nextBudgets = [...prev.budgets];
-      if (idx >= 0) nextBudgets[idx] = budget;
-      else nextBudgets.push(budget);
-      return { ...prev, budgets: nextBudgets };
-    });
-  };
-
-  const changeLanguage = (lang: Language) => {
-    setState(prev => ({ ...prev, language: lang }));
   };
 
   const completeOnboarding = () => {
@@ -143,49 +133,53 @@ const App: React.FC = () => {
   };
 
   if (!state.isOnboarded) {
-    return <Onboarding onComplete={completeOnboarding} language={state.language} setLanguage={changeLanguage} />;
+    return <Onboarding onComplete={completeOnboarding} language={Language.ES} setLanguage={() => {}} />;
   }
 
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard': return <Dashboard state={state} onAddClick={() => setIsEntryModalOpen(true)} />;
-      case 'journal': return <Journal entries={state.entries} onDelete={deleteEntry} onReset={resetJournal} language={state.language} />;
+      case 'journal': return <Journal entries={state.entries} onDelete={deleteEntry} onReset={resetJournal} language={Language.ES} />;
       case 'cashFlow': return (
         <CashFlow 
           state={state} 
-          onAddItem={addCashFlowItem} 
-          onDeleteItem={deleteCashFlowItem}
-          onToggleStatus={toggleCashFlowStatus}
+          onAddItem={(item) => setState(prev => ({ ...prev, cashFlowItems: [...prev.cashFlowItems, { ...item, id: crypto.randomUUID() }] }))} 
+          onDeleteItem={(id) => setState(prev => ({ ...prev, cashFlowItems: prev.cashFlowItems.filter(i => i.id !== id) }))}
+          onToggleStatus={(id) => setState(prev => ({
+            ...prev,
+            cashFlowItems: prev.cashFlowItems.map(i => i.id === id ? { ...i, status: i.status === 'pending' ? 'realized' : 'pending' } : i)
+          }))}
         />
       );
       case 'budget': return (
         <Budget 
           state={state} 
-          onUpdateBudget={updateBudget} 
+          onUpdateBudget={(budget) => setState(prev => {
+            const idx = prev.budgets.findIndex(b => b.month === budget.month);
+            const next = [...prev.budgets];
+            if (idx >= 0) next[idx] = budget; else next.push(budget);
+            return { ...prev, budgets: next };
+          })} 
         />
       );
-      case 'reports': return <Reports entries={state.entries} language={state.language} />;
-      case 'education': return <Education language={state.language} />;
+      case 'partners': return (
+        <Partners 
+          state={state} 
+          onAddPartner={addPartner}
+          onDeletePartner={deletePartner}
+          onAddMovement={addPartnerMovement}
+        />
+      );
+      case 'reports': return <Reports entries={state.entries} language={Language.ES} />;
+      case 'education': return <Education language={Language.ES} />;
       case 'settings': return (
         <div className="p-6 space-y-8 max-w-2xl mx-auto">
-          <h1 className="text-3xl font-bold neon-glow">{t.settings}</h1>
+          <h1 className="text-3xl font-bold neon-glow">Configuración</h1>
           <div className="glass p-8 rounded-[2rem] shadow-2xl space-y-8 border border-primary-500/20">
-            <div className="space-y-4">
-              <label className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-400">
-                <Globe size={14} className="text-primary-500" />
-                Language / Idioma
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                {[Language.EN, Language.ES, Language.PT, Language.FR].map(lang => (
-                   <button 
-                    key={lang}
-                    onClick={() => changeLanguage(lang)}
-                    className={`py-3 px-4 rounded-xl font-bold transition-all border ${state.language === lang ? 'bg-primary-600 text-white border-primary-500 shadow-lg shadow-primary-600/20' : 'bg-slate-800/50 text-slate-400 border-white/5 hover:border-white/10'}`}
-                   >
-                     {lang.toUpperCase()}
-                   </button>
-                ))}
-              </div>
+            <div className="p-6 bg-white/5 rounded-2xl border border-white/5">
+              <h3 className="text-sm font-bold text-slate-300 mb-2 uppercase tracking-widest">Información de App</h3>
+              <p className="text-xs text-slate-500">Versión 2.0.0 - Edición Profesional</p>
+              <p className="text-xs text-slate-500 mt-1">Idioma: Español (Predeterminado)</p>
             </div>
 
             <div className="pt-8 border-t border-white/5">
@@ -194,7 +188,7 @@ const App: React.FC = () => {
                 className="w-full flex items-center justify-center gap-3 text-rose-500 hover:bg-rose-500/10 p-5 rounded-2xl transition-all font-black uppercase tracking-widest border border-rose-500/20 hover:border-rose-500/40"
               >
                 <Trash2 size={20} />
-                {t.resetData}
+                Reiniciar Todos los Datos
               </button>
             </div>
           </div>
@@ -205,18 +199,19 @@ const App: React.FC = () => {
   };
 
   const navItems = [
-    { id: 'dashboard', label: t.dashboard, icon: LayoutDashboard },
-    { id: 'journal', label: t.journal, icon: BookOpen },
-    { id: 'cashFlow', label: t.cashFlow, icon: TrendingUp },
-    { id: 'budget', label: t.budget, icon: Target },
-    { id: 'reports', label: t.reports, icon: PieChart },
-    { id: 'education', label: t.education, icon: GraduationCap },
-    { id: 'settings', label: t.settings, icon: Settings },
+    { id: 'dashboard', label: 'Panel', icon: LayoutDashboard },
+    { id: 'journal', label: 'Diario', icon: BookOpen },
+    { id: 'cashFlow', label: 'Caja', icon: TrendingUp },
+    { id: 'budget', label: 'Presupuesto', icon: Target },
+    { id: 'partners', label: 'Clientes y Prov.', icon: Users },
+    { id: 'reports', label: 'Reportes', icon: PieChart },
+    { id: 'education', label: 'Educación', icon: GraduationCap },
+    { id: 'settings', label: 'Ajustes', icon: Settings },
   ];
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row relative">
-      {/* Mobile Header */}
+      {/* Header Móvil */}
       <header className="md:hidden flex items-center justify-between p-4 bg-slate-900 border-b border-primary-500/20 sticky top-0 z-30 backdrop-blur-md">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center text-white font-black shadow-lg shadow-primary-500/30">G</div>
@@ -250,7 +245,7 @@ const App: React.FC = () => {
                 }`}
               >
                 <item.icon size={22} className={activeTab === item.id ? 'text-primary-500' : ''} />
-                <span className="uppercase text-xs tracking-widest">{item.label}</span>
+                <span className="uppercase text-[10px] tracking-widest">{item.label}</span>
               </button>
             ))}
           </nav>
@@ -261,7 +256,7 @@ const App: React.FC = () => {
               className="w-full flex items-center justify-center gap-3 bg-primary-600 hover:bg-primary-500 text-white font-black py-4 px-6 rounded-2xl shadow-2xl shadow-primary-600/30 transition-all transform active:scale-95 uppercase text-xs tracking-[0.2em]"
             >
               <PlusCircle size={20} />
-              {t.addEntry}
+              NUEVO ASIENTO
             </button>
           </div>
         </div>
@@ -276,59 +271,17 @@ const App: React.FC = () => {
 
       {/* Floating Action Buttons */}
       <div className="fixed bottom-8 right-8 flex flex-col gap-4 z-50">
-        <button 
-          onClick={() => setIsScannerOpen(true)}
-          className="w-14 h-14 bg-slate-800 border border-primary-500/30 rounded-full flex items-center justify-center shadow-2xl text-primary-400 hover:bg-slate-700 hover:text-primary-300 transition-all group active:scale-90"
-          title={t.analyzeImage}
-        >
-          <ScanLine size={28} className="group-hover:rotate-12 transition-transform" />
+        <button onClick={() => setIsScannerOpen(true)} className="w-14 h-14 bg-slate-800 border border-primary-500/30 rounded-full flex items-center justify-center shadow-2xl text-primary-400 hover:bg-slate-700 transition-all active:scale-90" title="Escanear Factura">
+          <ScanLine size={28} />
         </button>
-        <button 
-          onClick={() => setIsChatOpen(true)}
-          className="w-16 h-16 bg-primary-600 text-white rounded-full flex items-center justify-center shadow-[0_10px_30px_rgba(255,0,85,0.4)] hover:bg-primary-500 transition-all transform hover:scale-105 active:scale-90 border-2 border-primary-400/20"
-          title={t.aiChat}
-        >
+        <button onClick={() => setIsChatOpen(true)} className="w-16 h-16 bg-primary-600 text-white rounded-full flex items-center justify-center shadow-[0_10px_30px_rgba(255,0,85,0.4)] hover:bg-primary-500 transition-all transform hover:scale-105 active:scale-90 border-2 border-primary-400/20" title="Asistente IA">
           <MessageSquare size={32} />
         </button>
       </div>
 
-      {/* Modals & Overlays */}
-      {isEntryModalOpen && (
-        <EntryForm 
-          onClose={() => setIsEntryModalOpen(false)} 
-          onSubmit={addEntry} 
-          language={state.language}
-        />
-      )}
-
-      {isChatOpen && (
-        <ChatBot 
-          onClose={() => setIsChatOpen(false)} 
-          language={state.language} 
-        />
-      )}
-
-      {isScannerOpen && (
-        <ImageAnalyzer 
-          onClose={() => setIsScannerOpen(false)} 
-          onResult={(data) => {
-            if (Array.isArray(data)) {
-                addEntriesBatch(data);
-            } else {
-                addEntry({
-                    date: data.date,
-                    description: data.description,
-                    amount: data.amount,
-                    debitAccount: data.recommendedAccount,
-                    creditAccount: 'acc_bank'
-                });
-            }
-            setIsScannerOpen(false);
-            setActiveTab('journal');
-          }}
-          language={state.language}
-        />
-      )}
+      {isEntryModalOpen && <EntryForm onClose={() => setIsEntryModalOpen(false)} onSubmit={addEntry} language={Language.ES} />}
+      {isChatOpen && <ChatBot onClose={() => setIsChatOpen(false)} language={Language.ES} />}
+      {isScannerOpen && <ImageAnalyzer onClose={() => setIsScannerOpen(false)} onResult={addEntriesBatch} language={Language.ES} />}
     </div>
   );
 };
