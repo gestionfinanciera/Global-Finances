@@ -1,17 +1,18 @@
 
 import React from 'react';
-import { JournalEntry, Language, AccountType, JournalEntryPart } from '../types';
+import { JournalEntry, Language, AccountType } from '../types';
 import { translations } from '../translations';
 import { CHART_OF_ACCOUNTS } from '../accounts';
-import { Trash2, Calendar } from 'lucide-react';
+import { Trash2, Calendar, RotateCcw } from 'lucide-react';
 
 interface JournalProps {
   entries: JournalEntry[];
   onDelete: (id: string) => void;
+  onReset: () => void;
   language: Language;
 }
 
-const Journal: React.FC<JournalProps> = ({ entries, onDelete, language }) => {
+const Journal: React.FC<JournalProps> = ({ entries, onDelete, onReset, language }) => {
   const t = translations[language];
 
   const getAccount = (id?: string) => CHART_OF_ACCOUNTS.find(a => a.id === id);
@@ -36,10 +37,30 @@ const Journal: React.FC<JournalProps> = ({ entries, onDelete, language }) => {
     }
   };
 
+  const handleResetClick = () => {
+    const confirmText = language === 'es' 
+      ? "¿Estás seguro de que quieres borrar TODO el Libro Diario? Esta acción no se puede deshacer." 
+      : "Are you sure you want to clear the ENTIRE Journal? This action cannot be undone.";
+    
+    if (window.confirm(confirmText)) {
+      onReset();
+    }
+  };
+
   return (
     <div className="p-4 md:p-6 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h1 className="text-3xl font-black tracking-tight neon-glow uppercase italic">{t.journal}</h1>
+        
+        {entries.length > 0 && (
+          <button 
+            onClick={handleResetClick}
+            className="flex items-center gap-2 px-5 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/30 rounded-2xl transition-all font-black uppercase text-[10px] tracking-widest group active:scale-95 shadow-[0_0_15px_rgba(244,63,94,0.1)]"
+          >
+            <RotateCcw size={14} className="group-hover:-rotate-45 transition-transform" />
+            {language === 'es' ? 'Reiniciar Diario' : 'Reset Journal'}
+          </button>
+        )}
       </div>
 
       <div className="bg-slate-900/60 backdrop-blur-xl rounded-[2.5rem] overflow-hidden border border-primary-500/30 shadow-[0_0_40px_rgba(255,0,85,0.1)] neon-border">
@@ -60,7 +81,7 @@ const Journal: React.FC<JournalProps> = ({ entries, onDelete, language }) => {
                 
                 return (
                   <React.Fragment key={entry.id}>
-                    {/* Date Header: Neon Spreadsheet Style */}
+                    {/* Date Header */}
                     <tr className="bg-blue-600/40 border-y border-blue-500/30 group">
                       <td className="p-3 text-center font-black text-xs text-blue-400 border-r border-blue-500/10">
                         {entryIdx + 1}
@@ -73,7 +94,7 @@ const Journal: React.FC<JournalProps> = ({ entries, onDelete, language }) => {
                       <td className="p-3"></td>
                     </tr>
                     
-                    {/* Debits (+A / +RN) */}
+                    {/* Debits */}
                     {debits.map((p, idx) => (
                       <tr key={`debit-${idx}`} className="group hover:bg-emerald-500/5 transition-colors border-b border-white/5">
                         <td className="border-r border-white/5"></td>
@@ -100,7 +121,7 @@ const Journal: React.FC<JournalProps> = ({ entries, onDelete, language }) => {
                       </tr>
                     ))}
                     
-                    {/* Credits (+P / +PN / +RP / -A) */}
+                    {/* Credits */}
                     {credits.map((p, idx) => (
                       <tr key={`credit-${idx}`} className="hover:bg-primary-500/5 transition-colors border-b border-white/5">
                         <td className="border-r border-white/5"></td>

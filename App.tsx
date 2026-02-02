@@ -59,7 +59,6 @@ const App: React.FC = () => {
 
   const addEntry = (entry: Omit<JournalEntry, 'id'>) => {
     const newEntry = { ...entry, id: crypto.randomUUID() };
-    // Change: Appending to the end so first entries stay at the top
     setState(prev => ({ ...prev, entries: [...prev.entries, newEntry] }));
     setIsEntryModalOpen(false);
   };
@@ -69,12 +68,15 @@ const App: React.FC = () => {
         const total = e.amount || (e.debitParts ? e.debitParts.reduce((s, p) => s + p.amount, 0) : 0);
         return { ...e, amount: total, id: crypto.randomUUID() };
     });
-    // Change: Appending batch to the end
     setState(prev => ({ ...prev, entries: [...prev.entries, ...entriesWithIds] }));
   };
 
   const deleteEntry = (id: string) => {
     setState(prev => ({ ...prev, entries: prev.entries.filter(e => e.id !== id) }));
+  };
+
+  const resetJournal = () => {
+    setState(prev => ({ ...prev, entries: [] }));
   };
 
   const resetData = () => {
@@ -104,7 +106,7 @@ const App: React.FC = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard': return <Dashboard state={state} onAddClick={() => setIsEntryModalOpen(true)} />;
-      case 'journal': return <Journal entries={state.entries} onDelete={deleteEntry} language={state.language} />;
+      case 'journal': return <Journal entries={state.entries} onDelete={deleteEntry} onReset={resetJournal} language={state.language} />;
       case 'reports': return <Reports entries={state.entries} language={state.language} />;
       case 'education': return <Education language={state.language} />;
       case 'settings': return (
