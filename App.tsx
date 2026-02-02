@@ -59,7 +59,8 @@ const App: React.FC = () => {
 
   const addEntry = (entry: Omit<JournalEntry, 'id'>) => {
     const newEntry = { ...entry, id: crypto.randomUUID() };
-    setState(prev => ({ ...prev, entries: [newEntry, ...prev.entries] }));
+    // Change: Appending to the end so first entries stay at the top
+    setState(prev => ({ ...prev, entries: [...prev.entries, newEntry] }));
     setIsEntryModalOpen(false);
   };
 
@@ -68,7 +69,8 @@ const App: React.FC = () => {
         const total = e.amount || (e.debitParts ? e.debitParts.reduce((s, p) => s + p.amount, 0) : 0);
         return { ...e, amount: total, id: crypto.randomUUID() };
     });
-    setState(prev => ({ ...prev, entries: [...entriesWithIds, ...prev.entries] }));
+    // Change: Appending batch to the end
+    setState(prev => ({ ...prev, entries: [...prev.entries, ...entriesWithIds] }));
   };
 
   const deleteEntry = (id: string) => {
