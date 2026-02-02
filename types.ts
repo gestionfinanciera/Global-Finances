@@ -52,6 +52,16 @@ export interface CashFlowItem {
   status: 'pending' | 'realized';
 }
 
+export interface BudgetCategory {
+  accountId: string; // Map budget to an account (usually Expense)
+  budgeted: number;
+}
+
+export interface MonthlyBudget {
+  month: string; // YYYY-MM
+  categories: BudgetCategory[];
+}
+
 export interface Reminder {
   id: string;
   title: string;
@@ -63,6 +73,7 @@ export interface Reminder {
 export interface AppState {
   entries: JournalEntry[];
   cashFlowItems: CashFlowItem[];
+  budgets: MonthlyBudget[];
   reminders: Reminder[];
   language: Language;
   theme: 'light' | 'dark';

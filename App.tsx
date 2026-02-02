@@ -13,14 +13,16 @@ import {
   X,
   Trash2,
   Globe,
-  TrendingUp
+  TrendingUp,
+  Target
 } from 'lucide-react';
-import { AppState, Language, JournalEntry, Reminder, CashFlowItem } from './types';
+import { AppState, Language, JournalEntry, Reminder, CashFlowItem, MonthlyBudget } from './types';
 import { translations } from './translations';
 import { CHART_OF_ACCOUNTS } from './accounts';
 import Dashboard from './components/Dashboard';
 import Journal from './components/Journal';
 import CashFlow from './components/CashFlow';
+import Budget from './components/Budget';
 import Reports from './components/Reports';
 import Education from './components/Education';
 import EntryForm from './components/EntryForm';
@@ -38,12 +40,14 @@ const App: React.FC = () => {
       return { 
         ...parsed, 
         theme: 'dark', 
-        cashFlowItems: parsed.cashFlowItems || [] // Handle legacy data
+        cashFlowItems: parsed.cashFlowItems || [],
+        budgets: parsed.budgets || []
       };
     }
     return {
       entries: [],
       cashFlowItems: [],
+      budgets: [],
       reminders: [],
       language: Language.ES,
       theme: 'dark',
@@ -91,6 +95,7 @@ const App: React.FC = () => {
       setState({
         entries: [],
         cashFlowItems: [],
+        budgets: [],
         reminders: [],
         language: state.language,
         theme: 'dark',
@@ -118,6 +123,17 @@ const App: React.FC = () => {
     }));
   };
 
+  // Budget Actions
+  const updateBudget = (budget: MonthlyBudget) => {
+    setState(prev => {
+      const idx = prev.budgets.findIndex(b => b.month === budget.month);
+      const nextBudgets = [...prev.budgets];
+      if (idx >= 0) nextBudgets[idx] = budget;
+      else nextBudgets.push(budget);
+      return { ...prev, budgets: nextBudgets };
+    });
+  };
+
   const changeLanguage = (lang: Language) => {
     setState(prev => ({ ...prev, language: lang }));
   };
@@ -140,6 +156,12 @@ const App: React.FC = () => {
           onAddItem={addCashFlowItem} 
           onDeleteItem={deleteCashFlowItem}
           onToggleStatus={toggleCashFlowStatus}
+        />
+      );
+      case 'budget': return (
+        <Budget 
+          state={state} 
+          onUpdateBudget={updateBudget} 
         />
       );
       case 'reports': return <Reports entries={state.entries} language={state.language} />;
@@ -186,6 +208,7 @@ const App: React.FC = () => {
     { id: 'dashboard', label: t.dashboard, icon: LayoutDashboard },
     { id: 'journal', label: t.journal, icon: BookOpen },
     { id: 'cashFlow', label: t.cashFlow, icon: TrendingUp },
+    { id: 'budget', label: t.budget, icon: Target },
     { id: 'reports', label: t.reports, icon: PieChart },
     { id: 'education', label: t.education, icon: GraduationCap },
     { id: 'settings', label: t.settings, icon: Settings },
