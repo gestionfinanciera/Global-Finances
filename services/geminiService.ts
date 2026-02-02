@@ -4,6 +4,13 @@ import { CHART_OF_ACCOUNTS } from "../accounts";
 
 const API_KEY = process.env.API_KEY;
 
+export interface PredictedEntry {
+  description: string;
+  debitParts: { accountId: string; amount: number }[];
+  creditParts: { accountId: string; amount: number }[];
+  isOpening?: boolean;
+}
+
 export const geminiService = {
   async chat(message: string, history: { role: 'user' | 'model', parts: { text: string }[] }[]): Promise<string> {
     if (!API_KEY) throw new Error("API Key not found");
@@ -26,21 +33,31 @@ export const geminiService = {
     return response.text || "Sorry, I couldn't process that.";
   },
 
-  async predictAccounts(description: string): Promise<{ debitAccount: string, creditAccount: string } | null> {
+  async predictAccounts(description: string): Promise<PredictedEntry | null> {
     if (!API_KEY) throw new Error("API Key not found");
     const ai = new GoogleGenAI({ apiKey: API_KEY });
 
     const accountContext = CHART_OF_ACCOUNTS.map(a => `${a.id}: ${a.name} (${a.type})`).join(", ");
 
-    const prompt = `Based on this professional accounting transaction description: "${description}", select the most appropriate Debit (Debe) and Credit (Haber) account IDs.
+    const prompt = `Act as a professional accountant. Analyze this description: "${description}".
+    Extract ALL accounts and their corresponding amounts for a balanced journal entry (Libro Diario).
     
-    ACCOUNTING RULES:
-    - DEBIT (Debe): Increase in ASSETS or EXPENSES, or decrease in LIABILITIES/EQUITY.
-    - CREDIT (Haber): Increase in LIABILITIES, EQUITY, or INCOME, or decrease in ASSETS.
+    ACCOUNTING RULES (Partida Doble):
+    - DEBIT (Debe): Asset (+A) or Expense (+RN) increases. Liability (-P) or Equity (-PN) decreases.
+    - CREDIT (Haber): Liability (+P), Equity (+PN), or Income (+RP) increases. Asset (-A) decreases.
+    - SUM(DEBIT) MUST EQUAL SUM(CREDIT).
     
     AVAILABLE ACCOUNTS: [${accountContext}].
     
-    Return ONLY a JSON object with 'debitAccount' and 'creditAccount' keys containing the exact account IDs.`;
+    If the text describes multiple starting items (Opening Inventory / Asiento de Apertura), balance the total Assets/Liabilities against Capital/Equity.
+    
+    Return ONLY a JSON object:
+    {
+      "description": "Short summary",
+      "debitParts": [{"accountId": "id", "amount": 100}],
+      "creditParts": [{"accountId": "id", "amount": 100}],
+      "isOpening": true/false
+    }`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview', 
@@ -50,10 +67,32 @@ export const geminiService = {
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            debitAccount: { type: Type.STRING },
-            creditAccount: { type: Type.STRING }
+            description: { type: Type.STRING },
+            debitParts: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  accountId: { type: Type.STRING },
+                  amount: { type: Type.NUMBER }
+                },
+                required: ["accountId", "amount"]
+              }
+            },
+            creditParts: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  accountId: { type: Type.STRING },
+                  amount: { type: Type.NUMBER }
+                },
+                required: ["accountId", "amount"]
+              }
+            },
+            isOpening: { type: Type.BOOLEAN }
           },
-          required: ["debitAccount", "creditAccount"]
+          required: ["description", "debitParts", "creditParts"]
         }
       }
     });
