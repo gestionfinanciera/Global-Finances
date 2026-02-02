@@ -11,11 +11,8 @@ import {
   ScanLine,
   Menu,
   X,
-  ChevronRight,
-  ChevronLeft,
-  Moon,
-  Sun,
-  Trash2
+  Trash2,
+  Globe
 } from 'lucide-react';
 import { AppState, Language, JournalEntry, Reminder } from './types';
 import { translations } from './translations';
@@ -34,12 +31,15 @@ const STORAGE_KEY = 'global_finances_data';
 const App: React.FC = () => {
   const [state, setState] = useState<AppState>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return { ...parsed, theme: 'dark' }; // Force dark theme on load
+    }
     return {
       entries: [],
       reminders: [],
-      language: Language.EN,
-      theme: 'light',
+      language: Language.ES,
+      theme: 'dark',
       isOnboarded: false
     };
   });
@@ -52,11 +52,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    if (state.theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    document.documentElement.classList.add('dark');
   }, [state]);
 
   const t = translations[state.language];
@@ -69,7 +65,6 @@ const App: React.FC = () => {
 
   const addEntriesBatch = (newEntries: Omit<JournalEntry, 'id'>[]) => {
     const entriesWithIds = newEntries.map(e => {
-        // Calculate total amount if missing (from debitParts)
         const total = e.amount || (e.debitParts ? e.debitParts.reduce((s, p) => s + p.amount, 0) : 0);
         return { ...e, amount: total, id: crypto.randomUUID() };
     });
@@ -85,15 +80,11 @@ const App: React.FC = () => {
       setState({
         entries: [],
         reminders: [],
-        language: Language.EN,
-        theme: 'light',
+        language: state.language,
+        theme: 'dark',
         isOnboarded: true
       });
     }
-  };
-
-  const toggleTheme = () => {
-    setState(prev => ({ ...prev, theme: prev.theme === 'light' ? 'dark' : 'light' }));
   };
 
   const changeLanguage = (lang: Language) => {
@@ -115,36 +106,36 @@ const App: React.FC = () => {
       case 'reports': return <Reports entries={state.entries} language={state.language} />;
       case 'education': return <Education language={state.language} />;
       case 'settings': return (
-        <div className="p-6 space-y-6 max-w-2xl mx-auto">
-          <h1 className="text-2xl font-bold">{t.settings}</h1>
-          <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm space-y-4 border border-slate-200 dark:border-slate-700">
-            <div>
-              <label className="block text-sm font-medium mb-1">Language / Idioma</label>
-              <select 
-                value={state.language} 
-                onChange={(e) => changeLanguage(e.target.value as Language)}
-                className="w-full p-3 rounded-2xl border dark:bg-slate-700 dark:border-slate-600 outline-none"
-              >
-                <option value={Language.EN}>English</option>
-                <option value={Language.ES}>Español</option>
-                <option value={Language.PT}>Português</option>
-                <option value={Language.FR}>Français</option>
-              </select>
+        <div className="p-6 space-y-8 max-w-2xl mx-auto">
+          <h1 className="text-3xl font-bold neon-glow">{t.settings}</h1>
+          <div className="glass p-8 rounded-[2rem] shadow-2xl space-y-8 border border-primary-500/20">
+            <div className="space-y-4">
+              <label className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-400">
+                <Globe size={14} className="text-primary-500" />
+                Language / Idioma
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {[Language.EN, Language.ES, Language.PT, Language.FR].map(lang => (
+                   <button 
+                    key={lang}
+                    onClick={() => changeLanguage(lang)}
+                    className={`py-3 px-4 rounded-xl font-bold transition-all border ${state.language === lang ? 'bg-primary-600 text-white border-primary-500 shadow-lg shadow-primary-600/20' : 'bg-slate-800/50 text-slate-400 border-white/5 hover:border-white/10'}`}
+                   >
+                     {lang.toUpperCase()}
+                   </button>
+                ))}
+              </div>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="font-semibold">Dark Mode</span>
-              <button onClick={toggleTheme} className="p-3 rounded-2xl bg-slate-100 dark:bg-slate-700 transition-colors">
-                {state.theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+
+            <div className="pt-8 border-t border-white/5">
+              <button 
+                onClick={resetData}
+                className="w-full flex items-center justify-center gap-3 text-rose-500 hover:bg-rose-500/10 p-5 rounded-2xl transition-all font-black uppercase tracking-widest border border-rose-500/20 hover:border-rose-500/40"
+              >
+                <Trash2 size={20} />
+                {t.resetData}
               </button>
             </div>
-            <hr className="dark:border-slate-700" />
-            <button 
-              onClick={resetData}
-              className="w-full flex items-center justify-center gap-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 p-4 rounded-2xl transition-all font-bold border border-transparent hover:border-red-200"
-            >
-              <Trash2 size={20} />
-              {t.resetData}
-            </button>
           </div>
         </div>
       );
@@ -163,48 +154,48 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col md:flex-row relative">
       {/* Mobile Header */}
-      <header className="md:hidden flex items-center justify-between p-4 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-30">
+      <header className="md:hidden flex items-center justify-between p-4 bg-slate-900 border-b border-primary-500/20 sticky top-0 z-30 backdrop-blur-md">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center text-white font-bold">G</div>
-          <span className="font-bold text-lg">Global Finances</span>
+          <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center text-white font-black shadow-lg shadow-primary-500/30">G</div>
+          <span className="font-black text-lg tracking-tight neon-glow">Global Finances</span>
         </div>
-        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-1">
-          {isSidebarOpen ? <X /> : <Menu />}
+        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-1 text-primary-500">
+          {isSidebarOpen ? <X size={28} /> : <Menu size={28} />}
         </button>
       </header>
 
       {/* Sidebar */}
       <aside className={`
-        fixed inset-y-0 left-0 z-40 w-64 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 transform transition-transform duration-300 md:relative md:translate-x-0
+        fixed inset-y-0 left-0 z-40 w-72 bg-slate-900 border-r border-primary-500/20 transform transition-transform duration-300 md:relative md:translate-x-0
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         <div className="h-full flex flex-col">
-          <div className="hidden md:flex items-center gap-3 p-6">
-            <div className="w-10 h-10 bg-primary-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-primary-500/30">G</div>
-            <span className="font-bold text-xl tracking-tight">Global Finances</span>
+          <div className="hidden md:flex items-center gap-4 p-8">
+            <div className="w-12 h-12 bg-primary-600 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-xl shadow-primary-500/30">G</div>
+            <span className="font-black text-2xl tracking-tighter neon-glow">Global Finances</span>
           </div>
           
-          <nav className="flex-1 px-4 py-4 space-y-1">
+          <nav className="flex-1 px-6 py-4 space-y-2">
             {navItems.map(item => (
               <button
                 key={item.id}
                 onClick={() => { setActiveTab(item.id); setIsSidebarOpen(false); }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+                className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all duration-300 ${
                   activeTab === item.id 
-                    ? 'bg-primary-50 text-primary-600 dark:bg-primary-900/20 dark:text-primary-400 font-semibold shadow-sm' 
-                    : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                    ? 'bg-primary-600/10 text-primary-500 font-black shadow-[inset_0_0_10px_rgba(255,0,85,0.1)] border border-primary-500/20' 
+                    : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
                 }`}
               >
-                <item.icon size={20} />
-                {item.label}
+                <item.icon size={22} className={activeTab === item.id ? 'text-primary-500' : ''} />
+                <span className="uppercase text-xs tracking-widest">{item.label}</span>
               </button>
             ))}
           </nav>
 
-          <div className="p-4 border-t border-slate-200 dark:border-slate-700 space-y-2">
+          <div className="p-6 border-t border-white/5">
             <button 
               onClick={() => setIsEntryModalOpen(true)}
-              className="w-full flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-700 text-white font-bold py-3 px-4 rounded-2xl shadow-lg shadow-primary-600/20 transition-all transform active:scale-95"
+              className="w-full flex items-center justify-center gap-3 bg-primary-600 hover:bg-primary-500 text-white font-black py-4 px-6 rounded-2xl shadow-2xl shadow-primary-600/30 transition-all transform active:scale-95 uppercase text-xs tracking-[0.2em]"
             >
               <PlusCircle size={20} />
               {t.addEntry}
@@ -214,27 +205,27 @@ const App: React.FC = () => {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto bg-slate-50 dark:bg-slate-950">
+      <main className="flex-1 overflow-auto bg-[#020617]">
         <div className="max-w-6xl mx-auto pb-24 md:pb-8">
           {renderContent()}
         </div>
       </main>
 
       {/* Floating Action Buttons */}
-      <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-50">
+      <div className="fixed bottom-8 right-8 flex flex-col gap-4 z-50">
         <button 
           onClick={() => setIsScannerOpen(true)}
-          className="w-12 h-12 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full flex items-center justify-center shadow-lg text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all group"
+          className="w-14 h-14 bg-slate-800 border border-primary-500/30 rounded-full flex items-center justify-center shadow-2xl text-primary-400 hover:bg-slate-700 hover:text-primary-300 transition-all group active:scale-90"
           title={t.analyzeImage}
         >
-          <ScanLine size={24} className="group-hover:rotate-12 transition-transform" />
+          <ScanLine size={28} className="group-hover:rotate-12 transition-transform" />
         </button>
         <button 
           onClick={() => setIsChatOpen(true)}
-          className="w-14 h-14 bg-primary-600 text-white rounded-full flex items-center justify-center shadow-2xl hover:bg-primary-700 transition-all transform hover:scale-105 active:scale-95"
+          className="w-16 h-16 bg-primary-600 text-white rounded-full flex items-center justify-center shadow-[0_10px_30px_rgba(255,0,85,0.4)] hover:bg-primary-500 transition-all transform hover:scale-105 active:scale-90 border-2 border-primary-400/20"
           title={t.aiChat}
         >
-          <MessageSquare size={28} />
+          <MessageSquare size={32} />
         </button>
       </div>
 
@@ -261,7 +252,6 @@ const App: React.FC = () => {
             if (Array.isArray(data)) {
                 addEntriesBatch(data);
             } else {
-                // If single receipt, add it or open entry form
                 addEntry({
                     date: data.date,
                     description: data.description,

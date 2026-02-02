@@ -25,6 +25,7 @@ export const CHART_OF_ACCOUNTS: Account[] = [
 
   // --- 3. PASIVO CIRCULANTE ---
   { id: 'acc_suppliers', name: 'Proveedores', type: AccountType.LIABILITY, description: 'Dinero adeudado por compras de mercadería a crédito.' },
+  { id: 'acc_sundry_creditors', name: 'Acreedores Varios', type: AccountType.LIABILITY, description: 'Deudas por compras de activos fijos, servicios ocasionales o conceptos que no son del giro comercial habitual (ej: compra de maquinaria a crédito).' },
   { id: 'acc_notes_pay', name: 'Documentos por Pagar', type: AccountType.LIABILITY, description: 'Títulos formales como pagarés firmados por la empresa.' },
   { id: 'acc_st_bank_loans', name: 'Préstamos Bancarios (CP)', type: AccountType.LIABILITY, description: 'Financiamiento bancario a devolver en menos de un año.' },
   { id: 'acc_vat_payable', name: 'IVA por Pagar', type: AccountType.LIABILITY, description: 'IVA cobrado en ventas pendiente de transferir.' },
