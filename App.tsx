@@ -33,6 +33,7 @@ import EntryForm from './components/EntryForm';
 import ChatBot from './components/ChatBot';
 import ImageAnalyzer from './components/ImageAnalyzer';
 import Onboarding from './components/Onboarding';
+import Landing from './components/Landing';
 
 const STORAGE_KEY = 'global_finances_data_v4';
 
@@ -73,6 +74,7 @@ const App: React.FC = () => {
     };
   });
 
+  const [showLanding, setShowLanding] = useState(!state.isOnboarded);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
@@ -132,10 +134,15 @@ const App: React.FC = () => {
         stockMovements: [],
         language: Language.ES,
         theme: 'dark',
-        isOnboarded: true
+        isOnboarded: false
       });
+      setShowLanding(true);
     }
   };
+
+  if (showLanding) {
+    return <Landing onStart={() => setShowLanding(false)} />;
+  }
 
   if (!state.isOnboarded) {
     return <Onboarding onComplete={() => setState(prev => ({ ...prev, isOnboarded: true }))} language={Language.ES} setLanguage={() => {}} />;
@@ -162,7 +169,7 @@ const App: React.FC = () => {
       case 'settings': return (
         <div className="p-6 space-y-8 max-w-2xl mx-auto">
           <h1 className="text-3xl font-bold neon-glow tracking-tighter uppercase italic">Ajustes</h1>
-          <div className="glass p-8 rounded-[2rem] shadow-2xl space-y-8 border border-primary-500/20">
+          <div className="glass p-8 rounded-[2.5rem] shadow-2xl space-y-8 border border-primary-500/20">
              <button onClick={resetData} className="w-full flex items-center justify-center gap-3 text-rose-500 hover:bg-rose-500/10 p-5 rounded-2xl transition-all font-black uppercase tracking-widest border border-rose-500/20">
                <Trash2 size={20} /> Reiniciar Datos
              </button>
