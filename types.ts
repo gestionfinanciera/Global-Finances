@@ -48,17 +48,14 @@ export interface CashFlowItem {
   status: 'pending' | 'realized';
 }
 
-export interface BudgetCategory {
-  accountId: string;
-  budgeted: number;
-}
-
 export interface MonthlyBudget {
   month: string;
-  categories: BudgetCategory[];
+  categories: {
+    accountId: string;
+    budgeted: number;
+  }[];
 }
 
-// --- Nuevos Tipos para Clientes y Proveedores ---
 export type PartnerType = 'client' | 'supplier';
 
 export interface Partner {
@@ -66,7 +63,7 @@ export interface Partner {
   type: PartnerType;
   name: string;
   fantasyName?: string;
-  taxId: string; // CUIT/CUIL
+  taxId: string;
   taxCondition: string;
   address?: string;
   city?: string;
@@ -86,17 +83,74 @@ export interface PartnerMovement {
   documentNumber: string;
   date: string;
   dueDate: string;
-  amount: number; // Monto absoluto
+  amount: number;
   observations?: string;
   status: 'pending' | 'paid' | 'overdue';
 }
 
-export interface Reminder {
+export interface TaxConfig {
   id: string;
-  title: string;
-  date: string;
+  name: string;
+  fullName: string;
+  category: 'national' | 'provincial' | 'municipal';
+  frequency: 'monthly' | 'bimonthly' | 'annual';
+  defaultRate: number;
+  dueDateDay: number;
+}
+
+export interface TaxObligation {
+  id: string;
+  taxId: string;
+  period: string;
   amount: number;
-  isPaid: boolean;
+  dueDate: string;
+  status: 'pending' | 'paid' | 'overdue';
+  paymentDate?: string;
+  receiptUrl?: string;
+}
+
+// --- Nuevos Tipos para Inventario ---
+
+export interface Product {
+  id: string;
+  sku: string;
+  barcode?: string;
+  name: string;
+  description?: string;
+  category: string;
+  brand?: string;
+  imageUrl?: string;
+  cost: number;
+  price: number;
+  stockActual: number;
+  stockMin: number;
+  stockMax: number;
+  reorderPoint: number;
+  location?: {
+    warehouse: string;
+    shelf: string;
+    row: string;
+  };
+  supplierId?: string;
+  active: boolean;
+  alertOnLowStock: boolean;
+}
+
+export type MovementType = 'purchase' | 'sale' | 'adjustment' | 'transfer' | 'return';
+
+export interface StockMovement {
+  id: string;
+  date: string;
+  time: string;
+  productId: string;
+  type: MovementType;
+  qtyIn: number;
+  qtyOut: number;
+  resultingStock: number;
+  unitCost: number;
+  reason: string;
+  referenceType?: string;
+  referenceId?: string;
 }
 
 export interface AppState {
@@ -105,7 +159,10 @@ export interface AppState {
   budgets: MonthlyBudget[];
   partners: Partner[];
   partnerMovements: PartnerMovement[];
-  reminders: Reminder[];
+  taxConfigs: TaxConfig[];
+  taxObligations: TaxObligation[];
+  products: Product[];
+  stockMovements: StockMovement[];
   language: Language;
   theme: 'light' | 'dark';
   isOnboarded: boolean;
