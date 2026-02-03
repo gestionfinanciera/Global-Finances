@@ -182,6 +182,7 @@ const App: React.FC = () => {
     { id: 'taxes', label: 'Impuestos', icon: Receipt },
     { id: 'inventory', label: 'Inventario', icon: Package },
     { id: 'reports', label: 'Reportes', icon: PieChart },
+    { id: 'education', label: 'Educación', icon: GraduationCap },
   ];
 
   return (
