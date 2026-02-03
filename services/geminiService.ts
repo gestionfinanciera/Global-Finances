@@ -31,7 +31,7 @@ export const geminiService = {
   },
 
   async predictAccounts(description: string): Promise<PredictedEntry | null> {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
 
     const accountContext = CHART_OF_ACCOUNTS.map(a => `${a.id}: ${a.name} (${a.type})`).join(", ");
 
@@ -96,7 +96,7 @@ export const geminiService = {
   },
 
   async analyzeLedger(base64Image: string): Promise<any[]> {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
 
     const accountContext = CHART_OF_ACCOUNTS.map(a => `${a.id}: ${a.name}`).join(", ");
 
@@ -160,7 +160,7 @@ export const geminiService = {
   },
 
   async analyzeReceipt(base64Image: string): Promise<any> {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
 
     const prompt = `Analiza este recibo o factura. Extrae: monto, fecha, descripción y cuenta recomendada del sistema.
     Retorna un objeto JSON.`;
