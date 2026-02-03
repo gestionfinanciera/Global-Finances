@@ -14,7 +14,7 @@ export interface PredictedEntry {
 export const geminiService = {
   async chat(message: string, history: { role: 'user' | 'model', parts: { text: string }[] }[]): Promise<string> {
     if (!API_KEY) throw new Error("API Key not found");
-    const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
+    const ai = new GoogleGenAI({ apiKey: API_KEY });
     
     const chat = ai.chats.create({
       model: 'gemini-3-pro-preview',
