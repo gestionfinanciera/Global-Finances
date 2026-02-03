@@ -63,14 +63,14 @@ const Journal: React.FC<JournalProps> = ({ entries, onDelete, onReset, language 
         )}
       </div>
 
-      <div className="bg-slate-900/60 backdrop-blur-xl rounded-[2.5rem] overflow-hidden border border-primary-500/30 shadow-[0_0_40px_rgba(255,0,85,0.1)] neon-border">
-        <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-primary-500 scrollbar-track-slate-800">
+      <div className="bg-[#1A1625]/60 backdrop-blur-xl rounded-[2.5rem] overflow-hidden border border-primary-500/30 shadow-[0_0_40px_rgba(168,85,247,0.1)]">
+        <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-primary-500 scrollbar-track-cyber-bg">
           <table className="w-full text-left border-collapse border-spacing-0">
             <thead>
-              <tr className="bg-gradient-to-r from-primary-600/90 to-primary-800/90 text-white font-black text-xs text-center uppercase tracking-[0.2em] shadow-lg">
-                <th className="border-r border-primary-500/20 p-5 w-20">N°</th>
-                <th className="border-r border-primary-500/20 p-5 text-left">DETALLE (Cuentas)</th>
-                <th className="border-r border-primary-500/20 p-5 w-40">DEBE ($)</th>
+              <tr className="bg-gradient-to-r from-primary-700 to-accent-pink text-white font-black text-xs text-center uppercase tracking-[0.2em] shadow-lg">
+                <th className="border-r border-white/10 p-5 w-20">N°</th>
+                <th className="border-r border-white/10 p-5 text-left">DETALLE (Cuentas)</th>
+                <th className="border-r border-white/10 p-5 w-40">DEBE ($)</th>
                 <th className="p-5 w-40">HABER ($)</th>
               </tr>
             </thead>
@@ -81,20 +81,18 @@ const Journal: React.FC<JournalProps> = ({ entries, onDelete, onReset, language 
                 
                 return (
                   <React.Fragment key={entry.id}>
-                    {/* Date Header */}
-                    <tr className="bg-blue-600/40 border-y border-blue-500/30 group">
-                      <td className="p-3 text-center font-black text-xs text-blue-400 border-r border-blue-500/10">
+                    <tr className="bg-primary-500/20 border-y border-primary-500/30 group">
+                      <td className="p-3 text-center font-black text-xs text-primary-400 border-r border-primary-500/10">
                         {entryIdx + 1}
                       </td>
                       <td className="p-3 text-center font-black text-[11px] uppercase tracking-[0.3em] text-white flex items-center justify-center gap-3">
-                        <Calendar size={14} className="text-blue-400" />
+                        <Calendar size={14} className="text-primary-400" />
                         Fecha {new Date(entry.date).toLocaleDateString('es-AR')}
                       </td>
-                      <td className="p-3 border-r border-blue-500/10"></td>
+                      <td className="p-3 border-r border-primary-500/10"></td>
                       <td className="p-3"></td>
                     </tr>
                     
-                    {/* Debits */}
                     {debits.map((p, idx) => (
                       <tr key={`debit-${idx}`} className="group hover:bg-emerald-500/5 transition-colors border-b border-white/5">
                         <td className="border-r border-white/5"></td>
@@ -114,32 +112,30 @@ const Journal: React.FC<JournalProps> = ({ entries, onDelete, onReset, language 
                             </button>
                           )}
                         </td>
-                        <td className="p-4 text-right font-black text-emerald-400 text-base border-r border-white/5 bg-emerald-500/5 shadow-[inset_0_0_15px_rgba(16,185,129,0.05)]">
+                        <td className="p-4 text-right font-black text-emerald-400 text-base border-r border-white/5 bg-emerald-500/5">
                           {p.amount.toLocaleString()}
                         </td>
                         <td className="p-4"></td>
                       </tr>
                     ))}
                     
-                    {/* Credits */}
                     {credits.map((p, idx) => (
                       <tr key={`credit-${idx}`} className="hover:bg-primary-500/5 transition-colors border-b border-white/5">
                         <td className="border-r border-white/5"></td>
                         <td className="p-4 text-sm font-bold pl-16">
                           <span className="text-slate-400 uppercase tracking-tighter flex items-center gap-3">
-                            <div className="w-2 h-2 rounded-full bg-primary-500 shadow-[0_0_10px_#ff0055]" />
+                            <div className="w-2 h-2 rounded-full bg-primary-500 shadow-[0_0_10px_#A855F7]" />
                             {getAccount(p.accountId)?.name || p.accountId} 
                             <span className="text-[11px] text-primary-400/80 font-black tracking-widest">{getAccountIndicator(p.accountId, false)}</span>
                           </span>
                         </td>
                         <td className="p-4 border-r border-white/5"></td>
-                        <td className="p-4 text-right font-black text-primary-400 text-base bg-primary-500/5 shadow-[inset_0_0_15px_rgba(255,0,85,0.05)]">
+                        <td className="p-4 text-right font-black text-primary-400 text-base bg-primary-500/5">
                           {p.amount.toLocaleString()}
                         </td>
                       </tr>
                     ))}
                     
-                    {/* S/F Footer row */}
                     <tr className="border-b border-white/10 bg-black/20">
                       <td className="border-r border-white/5"></td>
                       <td className="p-3 text-[10px] font-black text-slate-600 uppercase tracking-[0.4em] pl-6">S / F - O</td>
@@ -154,7 +150,7 @@ const Journal: React.FC<JournalProps> = ({ entries, onDelete, onReset, language 
           
           {entries.length === 0 && (
             <div className="p-32 text-center">
-              <div className="w-20 h-20 bg-slate-800/50 rounded-full flex items-center justify-center mx-auto mb-6 border border-primary-500/20 animate-pulse">
+              <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6 border border-primary-500/20 animate-pulse">
                 <Trash2 size={32} className="text-slate-700" />
               </div>
               <p className="text-slate-500 font-black uppercase tracking-[0.5em] text-sm">

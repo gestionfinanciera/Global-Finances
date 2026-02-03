@@ -14,44 +14,44 @@
             padding: 0;
             min-height: 100vh;
             overflow-x: hidden;
-            background-color: #020617;
-            color: #f8fafc;
+            background-color: #0F0D1E;
+            color: #F3F4F6;
         }
         
-        /* Striking Animated Background - Dark Only */
+        /* Cyber Purple Background */
         body.dark {
             background-image: 
-                radial-gradient(at 0% 0%, rgba(255, 0, 85, 0.15) 0px, transparent 50%),
-                radial-gradient(at 100% 0%, rgba(136, 19, 55, 0.1) 0px, transparent 50%),
-                radial-gradient(at 100% 100%, rgba(255, 0, 85, 0.08) 0px, transparent 50%),
-                radial-gradient(at 0% 100%, rgba(136, 19, 55, 0.1) 0px, transparent 50%);
+                radial-gradient(at 0% 0%, rgba(168, 85, 247, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(236, 72, 153, 0.1) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.08) 0px, transparent 50%),
+                radial-gradient(at 0% 100%, rgba(124, 58, 237, 0.1) 0px, transparent 50%);
             background-attachment: fixed;
         }
 
         @keyframes pulse-neon {
             0%, 100% { opacity: 0.8; }
-            50% { opacity: 1; text-shadow: 0 0 15px rgba(255, 0, 85, 0.8), 0 0 30px rgba(255, 0, 85, 0.4); }
+            50% { opacity: 1; text-shadow: 0 0 15px rgba(168, 85, 247, 0.8), 0 0 30px rgba(168, 85, 247, 0.4); }
         }
 
         .neon-glow {
-            color: #ff0055;
-            text-shadow: 0 0 10px rgba(255, 0, 85, 0.6), 0 0 20px rgba(255, 0, 85, 0.3);
+            color: #A855F7;
+            text-shadow: 0 0 10px rgba(168, 85, 247, 0.6), 0 0 20px rgba(168, 85, 247, 0.3);
             animation: pulse-neon 3s infinite ease-in-out;
         }
         
         .neon-border {
-            border: 1px solid rgba(255, 0, 85, 0.3);
-            box-shadow: 0 0 15px rgba(255, 0, 85, 0.2), inset 0 0 5px rgba(255, 0, 85, 0.1);
+            border: 1px solid rgba(168, 85, 247, 0.3);
+            box-shadow: 0 0 15px rgba(168, 85, 247, 0.2), inset 0 0 5px rgba(168, 85, 247, 0.1);
         }
 
         .neon-button {
-            background: linear-gradient(135deg, #ff0055 0%, #be123c 100%);
-            box-shadow: 0 4px 15px rgba(255, 0, 85, 0.4);
+            background: linear-gradient(135deg, #A855F7 0%, #7C3AED 100%);
+            box-shadow: 0 4px 15px rgba(168, 85, 247, 0.4);
             transition: all 0.3s ease;
         }
 
         .neon-button:hover {
-            box-shadow: 0 6px 20px rgba(255, 0, 85, 0.6);
+            box-shadow: 0 6px 20px rgba(168, 85, 247, 0.6);
             transform: translateY(-1px);
         }
 
@@ -62,12 +62,12 @@
             background: transparent;
         }
         ::-webkit-scrollbar-thumb {
-            background: #334155;
+            background: #251D35;
             border-radius: 10px;
         }
         
         .glass {
-            background: rgba(15, 23, 42, 0.6);
+            background: rgba(37, 29, 53, 0.6);
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.05);
@@ -90,16 +90,25 @@
                 extend: {
                     colors: {
                         primary: {
-                            50: '#fff1f2',
-                            100: '#ffe4e6',
-                            200: '#fecdd3',
-                            300: '#fda4af',
-                            400: '#fb7185',
-                            500: '#ff0055', // Base Neon Red
-                            600: '#e11d48',
-                            700: '#be123c',
-                            800: '#9f1239',
-                            900: '#881337',
+                            50: '#FAF5FF',
+                            100: '#F3E8FF',
+                            200: '#E9D5FF',
+                            300: '#D8B4FE',
+                            400: '#C084FC',
+                            500: '#A855F7', // Neon Purple
+                            600: '#9333EA',
+                            700: '#7C3AED', // Primary Dark
+                            800: '#6B21A8',
+                            900: '#581C87',
+                        },
+                        accent: {
+                            pink: '#EC4899',
+                            violet: '#8B5CF6'
+                        },
+                        cyber: {
+                            bg: '#0F0D1E',
+                            secondary: '#1A1625',
+                            card: '#251D35'
                         }
                     }
                 }
@@ -119,9 +128,9 @@
 }
 </script>
 </head>
-<body class="dark bg-slate-950 text-slate-100">
+<body class="dark bg-cyber-bg text-slate-100">
     <div class="orb w-96 h-96 bg-primary-900/20 top-0 -left-20"></div>
-    <div class="orb w-80 h-80 bg-primary-600/10 bottom-0 -right-20"></div>
+    <div class="orb w-80 h-80 bg-accent-pink/10 bottom-0 -right-20"></div>
     <div id="root"></div>
 </body>
 </html>
