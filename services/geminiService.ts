@@ -15,7 +15,7 @@ export const geminiService = {
    * Utiliza gemini-3-pro-preview para razonamiento avanzado.
    */
   async chat(message: string, history: { role: 'user' | 'model', parts: { text: string }[] }[]): Promise<string> {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: process.env.VITE_API_KEY });
     
     try {
       const chat = ai.chats.create({
@@ -48,7 +48,7 @@ export const geminiService = {
    * Utiliza gemini-3-flash-preview para velocidad y respuestas estructuradas.
    */
   async predictAccounts(description: string): Promise<PredictedEntry | null> {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: process.env.VITE_API_KEY });
     const accountContext = CHART_OF_ACCOUNTS.map(a => `${a.id}: ${a.name} (${a.type})`).join(", ");
 
     const prompt = `Actúa como un contador experto. Analiza la siguiente descripción: "${description}".
@@ -114,7 +114,7 @@ export const geminiService = {
    * Requiere gemini-3-pro-preview para visión y lógica compleja.
    */
   async analyzeLedger(base64Image: string): Promise<any[]> {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: process.env.VITE_API_KEY });
     const accountContext = CHART_OF_ACCOUNTS.map(a => `${a.id}: ${a.name}`).join(", ");
 
     const prompt = `Analiza la imagen de este libro diario contable. 
@@ -181,7 +181,7 @@ export const geminiService = {
    * Analiza un recibo o ticket de compra individual.
    */
   async analyzeReceipt(base64Image: string): Promise<any> {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: process.env.VITE_API_KEY });
 
     const prompt = `Extrae la información de este ticket/factura:
     1. Monto total.
