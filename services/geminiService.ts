@@ -10,117 +10,68 @@ export interface PredictedEntry {
 }
 
 export const geminiService = {
+  /**
+   * Chat interactivo con el asesor financiero.
+   * Utiliza gemini-3-pro-preview para razonamiento avanzado.
+   */
   async chat(message: string, history: { role: 'user' | 'model', parts: { text: string }[] }[]): Promise<string> {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
-    const chat = ai.chats.create({
-      model: 'gemini-3-pro-preview',
-      config: {
-        systemInstruction: `Eres un asesor financiero profesional y profesor de contabilidad para la aplicación "Global Finances". 
-        Tu objetivo es ayudar a los usuarios a gestionar su dinero y entender la contabilidad de partida doble. 
-        Mantén respuestas claras, educativas y profesionales. 
-        La aplicación usa las siguientes reglas:
-        - Activos y Gastos: Aumentan por el DEBE, disminuyen por el HABER.
-        - Pasivos, Patrimonio e Ingresos: Aumentan por el HABER, disminuyen por el DEBE.
-        Cada transacción debe estar balanceada.`,
-      },
-    });
-
-    const response = await chat.sendMessage({ message });
-    return response.text || "Lo siento, no pude procesar esa solicitud.";
-  },
-
-  async predictAccounts(description: string): Promise<PredictedEntry | null> {
-    const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
-
-    const accountContext = CHART_OF_ACCOUNTS.map(a => `${a.id}: ${a.name} (${a.type})`).join(", ");
-
-    const prompt = `Actúa como un contador profesional. Analiza esta descripción: "${description}".
-    Extrae TODAS las cuentas y sus montos correspondientes para un asiento contable balanceado (Libro Diario).
-    
-    REGLAS CONTABLES:
-    - DEBE: Aumenta Activo (+A) o Gasto (+RN). Disminuye Pasivo (-P) o Patrimonio (-PN).
-    - HABER: Aumenta Pasivo (+P), Patrimonio (+PN) o Ingreso (+RP). Disminuye Activo (-A).
-    - LA SUMA DEL DEBE DEBE SER IGUAL A LA SUMA DEL HABER.
-    
-    CUENTAS DISPONIBLES: [${accountContext}].
-    
-    Si el texto describe elementos iniciales (Asiento de Apertura), balancea Activos/Pasivos contra Capital/Patrimonio.
-    
-    Retorna ÚNICAMENTE un objeto JSON.`;
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview', 
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            description: { type: Type.STRING },
-            debitParts: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  accountId: { type: Type.STRING },
-                  amount: { type: Type.NUMBER }
-                },
-                required: ["accountId", "amount"]
-              }
-            },
-            creditParts: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  accountId: { type: Type.STRING },
-                  amount: { type: Type.NUMBER }
-                },
-                required: ["accountId", "amount"]
-              }
-            },
-            isOpening: { type: Type.BOOLEAN }
-          },
-          required: ["description", "debitParts", "creditParts"]
-        }
-      }
-    });
-
     try {
-      return JSON.parse(response.text.trim());
-    } catch (e) {
-      console.error("Error al parsear predicción JSON", e);
-      return null;
+      const chat = ai.chats.create({
+        model: 'gemini-3-pro-preview',
+        config: {
+          systemInstruction: `Eres el asesor financiero "Cyber Advisor" de Global Finances. 
+          Tu tono es tecnológico, premium y profesional.
+          Experticia: Contabilidad de partida doble, gestión de impuestos (AFIP/Argentina), flujos de caja y análisis de inventario.
+          Reglas de oro:
+          1. El DEBE (izq) aumenta Activos y Gastos.
+          2. El HABER (der) aumenta Pasivos, Patrimonio e Ingresos.
+          3. Siempre balancea: Debe = Haber.
+          Ayuda al usuario a entender sus finanzas con claridad meridiana.`,
+        },
+      });
+
+      const response = await chat.sendMessage({ message });
+      return response.text || "No obtuve una respuesta válida del asesor.";
+    } catch (error: any) {
+      console.error("Gemini Chat Error:", error);
+      if (error?.message?.includes("Requested entity was not found")) {
+        return "Error de configuración de API. Por favor, verifica tu clave en los ajustes.";
+      }
+      return "Hubo un problema de conexión con el asesor financiero.";
     }
   },
 
-  async analyzeLedger(base64Image: string): Promise<any[]> {
-    const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
+  /**
+   * Predice las cuentas contables basándose en una descripción de texto.
+   * Utiliza gemini-3-flash-preview para velocidad y respuestas estructuradas.
+   */
+  async predictAccounts(description: string): Promise<PredictedEntry | null> {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const accountContext = CHART_OF_ACCOUNTS.map(a => `${a.id}: ${a.name} (${a.type})`).join(", ");
 
-    const accountContext = CHART_OF_ACCOUNTS.map(a => `${a.id}: ${a.name}`).join(", ");
+    const prompt = `Actúa como un contador experto. Analiza la siguiente descripción: "${description}".
+    Genera un asiento contable balanceado.
+    
+    CUENTAS DISPONIBLES: [${accountContext}].
+    
+    REQUISITOS:
+    - Identifica qué cuentas se debitan (Debe) y cuáles se acreditan (Haber).
+    - Asegúrate de que la suma de debitParts sea IGUAL a la suma de creditParts.
+    - Si se mencionan varios items, desglósalos proporcionalmente.
+    
+    Retorna estrictamente un objeto JSON.`;
 
-    const prompt = `Analiza este libro diario contable. Extrae TODOS los asientos visibles.
-    Mapea los nombres de las cuentas a estos IDs de sistema: [${accountContext}].
-    Asegúrate de que el Debe sea igual al Haber para cada asiento.
-    Retorna un array de objetos JSON.`;
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
-      contents: {
-        parts: [
-          { inlineData: { data: base64Image, mimeType: 'image/jpeg' } },
-          { text: prompt }
-        ]
-      },
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: {
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview', 
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
             type: Type.OBJECT,
             properties: {
-              date: { type: Type.STRING },
               description: { type: Type.STRING },
               debitParts: {
                 type: Type.ARRAY,
@@ -143,55 +94,129 @@ export const geminiService = {
                   },
                   required: ["accountId", "amount"]
                 }
-              }
+              },
+              isOpening: { type: Type.BOOLEAN }
             },
-            required: ["date", "description", "debitParts", "creditParts"]
+            required: ["description", "debitParts", "creditParts"]
           }
         }
-      }
-    });
+      });
 
-    try {
       return JSON.parse(response.text.trim());
     } catch (e) {
-      console.error("Error al parsear Ledger JSON", e);
+      console.error("Error en predictAccounts:", e);
+      return null;
+    }
+  },
+
+  /**
+   * Analiza una imagen de un libro diario escrito a mano o impreso.
+   * Requiere gemini-3-pro-preview para visión y lógica compleja.
+   */
+  async analyzeLedger(base64Image: string): Promise<any[]> {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const accountContext = CHART_OF_ACCOUNTS.map(a => `${a.id}: ${a.name}`).join(", ");
+
+    const prompt = `Analiza la imagen de este libro diario contable. 
+    Detecta cada asiento con su fecha, descripción y cuentas.
+    Mapea las cuentas detectadas a estos IDs del sistema: [${accountContext}].
+    Si una cuenta no existe exactamente, usa la más cercana por categoría.
+    Retorna un array JSON de asientos.`;
+
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-pro-preview',
+        contents: {
+          parts: [
+            { inlineData: { data: base64Image, mimeType: 'image/jpeg' } },
+            { text: prompt }
+          ]
+        },
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                date: { type: Type.STRING },
+                description: { type: Type.STRING },
+                debitParts: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      accountId: { type: Type.STRING },
+                      amount: { type: Type.NUMBER }
+                    },
+                    required: ["accountId", "amount"]
+                  }
+                },
+                creditParts: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      accountId: { type: Type.STRING },
+                      amount: { type: Type.NUMBER }
+                    },
+                    required: ["accountId", "amount"]
+                  }
+                }
+              },
+              required: ["date", "description", "debitParts", "creditParts"]
+            }
+          }
+        }
+      });
+
+      return JSON.parse(response.text.trim());
+    } catch (e) {
+      console.error("Error en analyzeLedger:", e);
       return [];
     }
   },
 
+  /**
+   * Analiza un recibo o ticket de compra individual.
+   */
   async analyzeReceipt(base64Image: string): Promise<any> {
-    const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-    const prompt = `Analiza este recibo o factura. Extrae: monto, fecha, descripción y cuenta recomendada del sistema.
-    Retorna un objeto JSON.`;
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
-      contents: {
-        parts: [
-          { inlineData: { data: base64Image, mimeType: 'image/jpeg' } },
-          { text: prompt }
-        ]
-      },
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            amount: { type: Type.NUMBER },
-            date: { type: Type.STRING },
-            description: { type: Type.STRING },
-            recommendedAccount: { type: Type.STRING }
-          },
-          required: ["amount", "date", "description", "recommendedAccount"]
-        }
-      }
-    });
+    const prompt = `Extrae la información de este ticket/factura:
+    1. Monto total.
+    2. Fecha.
+    3. Descripción breve.
+    4. Sugiere un ID de cuenta de gasto (ej: acc_utilities_electricity, acc_office_supplies).
+    Retorna un JSON.`;
 
     try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-pro-preview',
+        contents: {
+          parts: [
+            { inlineData: { data: base64Image, mimeType: 'image/jpeg' } },
+            { text: prompt }
+          ]
+        },
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              amount: { type: Type.NUMBER },
+              date: { type: Type.STRING },
+              description: { type: Type.STRING },
+              recommendedAccount: { type: Type.STRING }
+            },
+            required: ["amount", "date", "description", "recommendedAccount"]
+          }
+        }
+      });
+
       return JSON.parse(response.text.trim());
     } catch (e) {
-      console.error("Error al parsear JSON de Gemini", e);
+      console.error("Error en analyzeReceipt:", e);
       return null;
     }
   }
