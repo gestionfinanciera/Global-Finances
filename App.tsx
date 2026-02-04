@@ -1,27 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { 
-  LayoutDashboard, 
-  BookOpen, 
-  PieChart, 
-  GraduationCap, 
-  Settings, 
-  PlusCircle, 
-  MessageSquare, 
-  ScanLine,
-  Menu,
-  X,
-  Trash2,
-  TrendingUp,
-  Target,
-  Users,
-  Receipt,
-  Package,
-  Briefcase,
-  LogOut,
-  Loader2
+  LayoutDashboard, BookOpen, PieChart, GraduationCap, Settings, 
+  PlusCircle, MessageSquare, ScanLine, TrendingUp, Target, 
+  Users, Receipt, Package, Briefcase, LogOut, Loader2, AlertCircle
 } from 'lucide-react';
-import { AppState, Language, JournalEntry, Partner, Project, Product, StockMovement, TaxConfig } from './types';
+import { AppState, Language, JournalEntry, Partner, Project, TaxConfig } from './types';
 import Dashboard from './components/Dashboard';
 import Journal from './components/Journal';
 import CashFlow from './components/CashFlow';
@@ -35,8 +19,6 @@ import Education from './components/Education';
 import EntryForm from './components/EntryForm';
 import ChatBot from './components/ChatBot';
 import ImageAnalyzer from './components/ImageAnalyzer';
-import Onboarding from './components/Onboarding';
-import Landing from './components/Landing';
 import Auth from './components/Auth';
 import { supabase } from './lib/supabase';
 
@@ -44,37 +26,25 @@ const INITIAL_TAX_CONFIGS: TaxConfig[] = [
   { id: 'tax_iva', name: 'IVA', fullName: 'Impuesto al Valor Agregado', category: 'national', frequency: 'monthly', defaultRate: 21, dueDateDay: 11 },
   { id: 'tax_iibb', name: 'IIBB', fullName: 'Ingresos Brutos', category: 'provincial', frequency: 'monthly', defaultRate: 3.5, dueDateDay: 18 },
   { id: 'tax_gan', name: 'Ganancias', fullName: 'Impuesto a las Ganancias', category: 'national', frequency: 'monthly', defaultRate: 0, dueDateDay: 20 },
-  { id: 'tax_ss', name: 'Seg. Social', fullName: 'Cargas Sociales SUSS', category: 'national', frequency: 'monthly', defaultRate: 0, dueDateDay: 13 },
-  { id: 'tax_mun', name: 'Municipal', fullName: 'Tasa Municipal', category: 'municipal', frequency: 'bimonthly', defaultRate: 0, dueDateDay: 30 },
 ];
 
 const App: React.FC = () => {
   const [user, setUser] = useState<any>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  
   const [state, setState] = useState<AppState>({
-    entries: [],
-    cashFlowItems: [],
-    budgets: [],
-    partners: [],
-    projects: [],
-    partnerMovements: [],
-    taxConfigs: INITIAL_TAX_CONFIGS,
-    taxObligations: [],
-    products: [],
-    stockMovements: [],
-    language: Language.ES,
-    theme: 'dark',
-    isOnboarded: false
+    entries: [], cashFlowItems: [], budgets: [], partners: [], projects: [],
+    partnerMovements: [], taxConfigs: INITIAL_TAX_CONFIGS, taxObligations: [],
+    products: [], stockMovements: [], language: Language.ES, theme: 'dark', isOnboarded: false
   });
 
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
 
-  // Escuchar cambios de autenticación
   useEffect(() => {
+    // Escuchar cambios de autenticación en Supabase
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setIsAuthLoading(false);
@@ -87,76 +57,61 @@ const App: React.FC = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Cargar datos reales desde Supabase cuando hay usuario
+  // Sincronizar datos con Supabase
   useEffect(() => {
-    if (user) {
-      loadUserData();
-    }
+    if (!user) return;
+
+    const fetchData = async () => {
+      const { data: entries } = await supabase.from('entries').select('*');
+      const { data: partners } = await supabase.from('partners').select('*');
+      const { data: projects } = await supabase.from('projects').select('*');
+
+      setState(prev => ({
+        ...prev,
+        entries: entries || [],
+        partners: partners || [],
+        projects: projects || []
+      }));
+    };
+
+    fetchData();
+
+    // Suscripción en tiempo real opcional (por brevedad usamos fetch simple aquí)
   }, [user]);
 
-  const loadUserData = async () => {
-    setIsAuthLoading(true);
-    const { data: clients } = await supabase.from('clients').select('*');
-    const { data: projects } = await supabase.from('projects').select('*');
-    
-    setState(prev => ({
-      ...prev,
-      partners: clients || [],
-      projects: projects || [],
-      isOnboarded: true // Asumimos onboarded si ya tiene cuenta
-    }));
-    setIsAuthLoading(false);
+  const addEntry = async (entry: Omit<JournalEntry, 'id'>) => {
+    const { data, error } = await supabase.from('entries').insert([{ ...entry, user_id: user.id }]).select();
+    if (!error && data) {
+      setState(prev => ({ ...prev, entries: [...prev.entries, data[0] as JournalEntry] }));
+      setIsEntryModalOpen(false);
+    }
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
+  const deleteEntry = async (id: string) => {
+    const { error } = await supabase.from('entries').delete().eq('id', id);
+    if (!error) {
+      setState(prev => ({ ...prev, entries: prev.entries.filter(e => e.id !== id) }));
+    }
   };
-
-  const addEntry = (entry: Omit<JournalEntry, 'id'>) => {
-    const newEntry = { ...entry, id: crypto.randomUUID() };
-    setState(prev => ({ ...prev, entries: [...prev.entries, newEntry] }));
-    setIsEntryModalOpen(false);
-  };
-
-  // --- Operaciones Cloud (Mandatorias) ---
 
   const addPartner = async (p: Omit<Partner, 'id'>) => {
-    if (!user) return;
-    const { data, error } = await supabase
-      .from('clients')
-      .insert([{ name: p.name, description: p.description, user_id: user.id }])
-      .select();
-
+    const { data, error } = await supabase.from('partners').insert([{ ...p, user_id: user.id }]).select();
     if (!error && data) {
-      setState(prev => ({ ...prev, partners: [...prev.partners, data[0]] }));
+      setState(prev => ({ ...prev, partners: [...prev.partners, data[0] as Partner] }));
     }
   };
 
   const deletePartner = async (id: string) => {
-    const { error } = await supabase.from('clients').delete().eq('id', id);
+    const { error } = await supabase.from('partners').delete().eq('id', id);
     if (!error) {
       setState(prev => ({ ...prev, partners: prev.partners.filter(p => p.id !== id) }));
     }
   };
 
   const addProject = async (proj: Omit<Project, 'id'>) => {
-    if (!user) return;
-    const { data, error } = await supabase
-      .from('projects')
-      .insert([{ 
-        user_id: user.id,
-        client_id: proj.client_id,
-        name: proj.name,
-        description: proj.description,
-        start_date: proj.start_date,
-        end_date: proj.end_date,
-        status: proj.status
-      }])
-      .select();
-
+    const { data, error } = await supabase.from('projects').insert([{ ...proj, user_id: user.id }]).select();
     if (!error && data) {
-      setState(prev => ({ ...prev, projects: [...prev.projects, data[0]] }));
+      setState(prev => ({ ...prev, projects: [...prev.projects, data[0] as Project] }));
     }
   };
 
@@ -171,7 +126,7 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen bg-[#0F0D1E] flex flex-col items-center justify-center gap-4">
         <Loader2 size={48} className="text-primary-500 animate-spin" />
-        <span className="text-[10px] font-black uppercase tracking-[0.5em] text-slate-500">Global Finances Loading</span>
+        <span className="text-[10px] font-black uppercase tracking-[0.5em] text-slate-500">Supabase Cloud Loading</span>
       </div>
     );
   }
@@ -183,35 +138,20 @@ const App: React.FC = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard': return <Dashboard state={state} onAddClick={() => setIsEntryModalOpen(true)} />;
-      case 'journal': return <Journal entries={state.entries} onDelete={(id) => setState(prev => ({ ...prev, entries: prev.entries.filter(e => e.id !== id) }))} onReset={() => setState(prev => ({ ...prev, entries: [] }))} language={Language.ES} />;
-      case 'cashFlow': return <CashFlow state={state} onAddItem={(i) => setState(prev => ({ ...prev, cashFlowItems: [...prev.cashFlowItems, { ...i, id: crypto.randomUUID() }] }))} onDeleteItem={(id) => setState(prev => ({ ...prev, cashFlowItems: prev.cashFlowItems.filter(i => i.id !== id) }))} onToggleStatus={(id) => setState(prev => ({ ...prev, cashFlowItems: prev.cashFlowItems.map(i => i.id === id ? { ...i, status: i.status === 'pending' ? 'realized' : 'pending' } : i) }))} />;
-      case 'budget': return <Budget state={state} onUpdateBudget={(b) => setState(prev => { const idx = prev.budgets.findIndex(x => x.month === b.month); const next = [...prev.budgets]; if (idx >= 0) next[idx] = b; else next.push(b); return { ...prev, budgets: next }; })} />;
+      case 'journal': return <Journal entries={state.entries} onDelete={deleteEntry} onReset={() => {}} language={Language.ES} />;
+      case 'cashFlow': return <CashFlow state={state} onAddItem={() => {}} onDeleteItem={() => {}} onToggleStatus={() => {}} />;
       case 'partners': return <Partners state={state} onAddPartner={addPartner} onDeletePartner={deletePartner} onAddMovement={() => {}} />;
       case 'projects': return <Projects state={state} onAddProject={addProject} onDeleteProject={deleteProject} />;
-      case 'taxes': return <Taxes state={state} onAddObligation={(o) => setState(prev => ({ ...prev, taxObligations: [...prev.taxObligations, { ...o, id: crypto.randomUUID() }] }))} onUpdateObligation={(id, up) => setState(prev => ({ ...prev, taxObligations: prev.taxObligations.map(x => x.id === id ? { ...x, ...up } : x) }))} onAddEntry={addEntry} />;
-      case 'inventory': return (
-        <Inventory 
-          state={state} 
-          onAddProduct={(p) => setState(prev => ({ ...prev, products: [...prev.products, { ...p, id: crypto.randomUUID() }] }))}
-          onUpdateProduct={(id, up) => setState(prev => ({ ...prev, products: prev.products.map(x => x.id === id ? { ...x, ...up } : x) }))}
-          onAddMovement={(m) => setState(prev => ({ ...prev, stockMovements: [...prev.stockMovements, { ...m, id: crypto.randomUUID() }] }))}
-        />
-      );
       case 'reports': return <Reports entries={state.entries} language={Language.ES} />;
       case 'education': return <Education language={Language.ES} />;
       case 'settings': return (
         <div className="p-6 space-y-8 max-w-2xl mx-auto">
-          <h1 className="text-3xl font-bold neon-glow tracking-tighter uppercase italic">Perfil de Usuario</h1>
-          <div className="glass p-8 rounded-[2.5rem] shadow-2xl space-y-8 border border-primary-500/20 text-center">
-             <div className="w-20 h-20 bg-primary-500 rounded-full flex items-center justify-center text-white text-2xl font-black mx-auto mb-4">
-                {user.email?.charAt(0).toUpperCase()}
-             </div>
-             <div>
-                <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Cuenta Activa</p>
-                <p className="text-lg font-bold text-white">{user.email}</p>
-             </div>
-             <button onClick={handleLogout} className="w-full flex items-center justify-center gap-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 p-5 rounded-2xl transition-all font-black uppercase tracking-widest border border-rose-500/20">
-               <LogOut size={20} /> Cerrar Sesión Cloud
+          <h1 className="text-3xl font-bold neon-glow tracking-tighter uppercase italic text-center">Perfil Supabase</h1>
+          <div className="glass p-8 rounded-[2.5rem] text-center border border-primary-500/20">
+             <div className="w-20 h-20 bg-primary-600 rounded-full flex items-center justify-center text-white text-3xl font-black mx-auto mb-4">{user.email?.charAt(0).toUpperCase()}</div>
+             <p className="text-slate-400 font-bold mb-8 italic">{user.email}</p>
+             <button onClick={() => supabase.auth.signOut()} className="w-full flex items-center justify-center gap-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 p-5 rounded-2xl transition-all font-black uppercase tracking-widest border border-rose-500/20">
+               <LogOut size={20} /> Desconectar de Supabase
              </button>
           </div>
         </div>
@@ -224,74 +164,42 @@ const App: React.FC = () => {
     { id: 'dashboard', label: 'Panel', icon: LayoutDashboard },
     { id: 'journal', label: 'Diario', icon: BookOpen },
     { id: 'cashFlow', label: 'Caja', icon: TrendingUp },
-    { id: 'budget', label: 'Presupuesto', icon: Target },
     { id: 'partners', label: 'Contactos', icon: Users },
     { id: 'projects', label: 'Proyectos', icon: Briefcase },
-    { id: 'taxes', label: 'Impuestos', icon: Receipt },
-    { id: 'inventory', label: 'Inventario', icon: Package },
     { id: 'reports', label: 'Reportes', icon: PieChart },
     { id: 'education', label: 'Educación', icon: GraduationCap },
+    { id: 'settings', label: 'Perfil', icon: Settings },
   ];
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row relative">
-      <header className="md:hidden flex items-center justify-between p-4 bg-[#1A1625] border-b border-primary-500/20 sticky top-0 z-30 backdrop-blur-md">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center text-white font-black shadow-lg shadow-primary-500/30">G</div>
-          <span className="font-black text-lg tracking-tight neon-glow">Global Finances</span>
-        </div>
-        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-1 text-primary-500">
-          {isSidebarOpen ? <X size={28} /> : <Menu size={28} />}
-        </button>
-      </header>
-
-      <aside className={`fixed inset-y-0 left-0 z-40 w-72 bg-[#1A1625] border-r border-primary-500/20 transform transition-transform duration-300 md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="h-full flex flex-col">
-          <div className="hidden md:flex items-center gap-4 p-8">
-            <div className="w-12 h-12 bg-primary-500 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-xl shadow-primary-500/30">G</div>
-            <span className="font-black text-2xl tracking-tighter neon-glow">Global Finances</span>
+      <aside className="w-72 bg-[#1A1625] border-r border-primary-500/20 hidden md:flex flex-col">
+          <div className="flex items-center gap-4 p-8">
+            <div className="w-10 h-10 bg-primary-500 rounded-xl flex items-center justify-center text-white font-black text-xl shadow-xl">G</div>
+            <span className="font-black text-xl tracking-tighter neon-glow uppercase italic">Global Finances</span>
           </div>
-          
-          <nav className="flex-1 px-6 py-4 space-y-1 overflow-y-auto scrollbar-thin">
+          <nav className="flex-1 px-6 py-4 space-y-1">
             {navItems.map(item => (
-              <button 
-                key={item.id} 
-                onClick={() => { setActiveTab(item.id); setIsSidebarOpen(false); }} 
-                className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all duration-300 ${activeTab === item.id ? 'bg-primary-500/10 text-primary-400 font-black border-l-4 border-accent-pink shadow-[0_0_15px_rgba(168,85,247,0.1)]' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 border-l-4 border-transparent'}`}
-              >
-                <item.icon size={20} className={activeTab === item.id ? 'text-primary-500' : ''} />
+              <button key={item.id} onClick={() => setActiveTab(item.id)} className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all ${activeTab === item.id ? 'bg-primary-500/10 text-primary-400 font-black' : 'text-slate-500 hover:bg-white/5'}`}>
+                <item.icon size={20} />
                 <span className="uppercase text-[10px] tracking-widest">{item.label}</span>
               </button>
             ))}
           </nav>
-
-          <div className="p-6 border-t border-white/5 space-y-4">
-            <button onClick={() => setIsEntryModalOpen(true)} className="w-full flex items-center justify-center gap-3 bg-primary-500 hover:bg-primary-700 text-white font-black py-4 px-6 rounded-2xl shadow-2xl shadow-primary-500/20 transition-all transform active:scale-95 uppercase text-xs tracking-[0.2em]">
-              <PlusCircle size={20} /> Nuevo Asiento
-            </button>
-            <button onClick={handleLogout} className="w-full flex items-center justify-center gap-3 text-slate-500 hover:text-rose-500 transition-colors uppercase text-[9px] font-black tracking-widest">
-              <LogOut size={14} /> Salir
-            </button>
-          </div>
-        </div>
       </aside>
 
       <main className="flex-1 overflow-auto bg-cyber-bg">
-        <div className="max-w-6xl mx-auto pb-24 md:pb-8">{renderContent()}</div>
+        <div className="max-w-6xl mx-auto p-4 md:p-8">{renderContent()}</div>
       </main>
 
       <div className="fixed bottom-8 right-8 flex flex-col gap-4 z-50">
-        <button onClick={() => setIsScannerOpen(true)} className="w-14 h-14 bg-cyber-card border border-primary-500/30 rounded-full flex items-center justify-center shadow-2xl text-primary-400 hover:bg-primary-900 transition-all active:scale-90" title="Escanear">
-          <ScanLine size={28} />
-        </button>
-        <button onClick={() => setIsChatOpen(true)} className="w-16 h-16 bg-primary-500 text-white rounded-full flex items-center justify-center shadow-[0_10px_30px_rgba(168,85,247,0.4)] hover:bg-primary-600 transition-all transform hover:scale-105 active:scale-90 border-2 border-primary-300/20" title="Asistente">
-          <MessageSquare size={32} />
-        </button>
+        <button onClick={() => setIsScannerOpen(true)} className="w-14 h-14 bg-cyber-card border border-primary-500/30 rounded-full flex items-center justify-center shadow-2xl text-primary-400 hover:bg-primary-900 transition-all"><ScanLine size={24} /></button>
+        <button onClick={() => setIsChatOpen(true)} className="w-16 h-16 bg-primary-500 text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-105 transition-all"><MessageSquare size={28} /></button>
       </div>
 
       {isEntryModalOpen && <EntryForm onClose={() => setIsEntryModalOpen(false)} onSubmit={addEntry} language={Language.ES} />}
       {isChatOpen && <ChatBot onClose={() => setIsChatOpen(false)} language={Language.ES} />}
-      {isScannerOpen && <ImageAnalyzer onClose={() => setIsScannerOpen(false)} onResult={(res) => { if(Array.isArray(res)) setState(prev => ({ ...prev, entries: [...prev.entries, ...res.map(r => ({ ...r, id: crypto.randomUUID() }))] })); setActiveTab('journal'); }} language={Language.ES} />}
+      {isScannerOpen && <ImageAnalyzer onClose={() => setIsScannerOpen(false)} onResult={(res) => { if(Array.isArray(res)) res.forEach(addEntry); setActiveTab('journal'); }} language={Language.ES} />}
     </div>
   );
 };
