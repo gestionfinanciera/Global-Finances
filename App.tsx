@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, 
   BookOpen, 
@@ -16,15 +16,17 @@ import {
   Target,
   Users,
   Receipt,
-  Package
+  Package,
+  Briefcase
 } from 'lucide-react';
-import { AppState, Language, JournalEntry, CashFlowItem, MonthlyBudget, Partner, PartnerMovement, TaxConfig, TaxObligation, Product, StockMovement } from './types';
+import { AppState, Language, JournalEntry, Partner, Project, Product, StockMovement, TaxConfig } from './types';
 import { translations } from './translations';
 import Dashboard from './components/Dashboard';
 import Journal from './components/Journal';
 import CashFlow from './components/CashFlow';
 import Budget from './components/Budget';
 import Partners from './components/Partners';
+import Projects from './components/Projects';
 import Taxes from './components/Taxes';
 import Inventory from './components/Inventory';
 import Reports from './components/Reports';
@@ -34,6 +36,7 @@ import ChatBot from './components/ChatBot';
 import ImageAnalyzer from './components/ImageAnalyzer';
 import Onboarding from './components/Onboarding';
 import Landing from './components/Landing';
+import { supabase, ensureSession } from './lib/supabase';
 
 const STORAGE_KEY = 'global_finances_data_v4';
 
@@ -55,7 +58,9 @@ const App: React.FC = () => {
         theme: 'dark', 
         language: Language.ES,
         products: parsed.products || [],
-        stockMovements: parsed.stockMovements || []
+        stockMovements: parsed.stockMovements || [],
+        partners: parsed.partners || [],
+        projects: parsed.projects || []
       };
     }
     return {
@@ -63,6 +68,7 @@ const App: React.FC = () => {
       cashFlowItems: [],
       budgets: [],
       partners: [],
+      projects: [],
       partnerMovements: [],
       taxConfigs: INITIAL_TAX_CONFIGS,
       taxObligations: [],
@@ -80,19 +86,101 @@ const App: React.FC = () => {
   const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [isLoadingSupabase, setIsLoadingSupabase] = useState(false);
+
+  // Inicialización de sesión y carga de datos desde Supabase
+  useEffect(() => {
+    const initSupabase = async () => {
+      setIsLoadingSupabase(true);
+      await ensureSession();
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        // Cargar Clientes
+        const { data: clients } = await supabase.from('clients').select('*');
+        // Cargar Proyectos
+        const { data: projects } = await supabase.from('projects').select('*');
+        
+        setState(prev => ({
+          ...prev,
+          partners: clients || [],
+          projects: projects || []
+        }));
+      }
+      setIsLoadingSupabase(false);
+    };
+
+    if (!showLanding) {
+      initSupabase();
+    }
+  }, [showLanding]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     document.documentElement.classList.add('dark');
   }, [state]);
 
-  const t = translations[Language.ES];
-
   const addEntry = (entry: Omit<JournalEntry, 'id'>) => {
     const newEntry = { ...entry, id: crypto.randomUUID() };
     setState(prev => ({ ...prev, entries: [...prev.entries, newEntry] }));
     setIsEntryModalOpen(false);
   };
+
+  // --- Operaciones Supabase ---
+
+  const addPartner = async (p: Omit<Partner, 'id'>) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('clients')
+      .insert([{ name: p.name, description: p.description, user_id: user.id }])
+      .select();
+
+    if (!error && data) {
+      setState(prev => ({ ...prev, partners: [...prev.partners, data[0]] }));
+    } else {
+      console.error("Error Supabase Client:", error?.message);
+    }
+  };
+
+  const deletePartner = async (id: string) => {
+    const { error } = await supabase.from('clients').delete().eq('id', id);
+    if (!error) {
+      setState(prev => ({ ...prev, partners: prev.partners.filter(p => p.id !== id) }));
+    }
+  };
+
+  const addProject = async (proj: Omit<Project, 'id'>) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('projects')
+      .insert([{ 
+        user_id: user.id,
+        client_id: proj.client_id,
+        name: proj.name,
+        description: proj.description,
+        start_date: proj.start_date,
+        end_date: proj.end_date,
+        status: proj.status
+      }])
+      .select();
+
+    if (!error && data) {
+      setState(prev => ({ ...prev, projects: [...prev.projects, data[0]] }));
+    }
+  };
+
+  const deleteProject = async (id: string) => {
+    const { error } = await supabase.from('projects').delete().eq('id', id);
+    if (!error) {
+      setState(prev => ({ ...prev, projects: prev.projects.filter(p => p.id !== id) }));
+    }
+  };
+
+  // --- Otras Operaciones Locales ---
 
   const addProduct = (p: Omit<Product, 'id'>) => {
     const newP = { ...p, id: crypto.randomUUID() };
@@ -121,12 +209,13 @@ const App: React.FC = () => {
   };
 
   const resetData = () => {
-    if (window.confirm(t.warningReset)) {
+    if (window.confirm("¿Estás seguro? Esto eliminará todo tu historial financiero permanentemente.")) {
       setState({
         entries: [],
         cashFlowItems: [],
         budgets: [],
         partners: [],
+        projects: [],
         partnerMovements: [],
         taxConfigs: INITIAL_TAX_CONFIGS,
         taxObligations: [],
@@ -154,7 +243,8 @@ const App: React.FC = () => {
       case 'journal': return <Journal entries={state.entries} onDelete={(id) => setState(prev => ({ ...prev, entries: prev.entries.filter(e => e.id !== id) }))} onReset={() => setState(prev => ({ ...prev, entries: [] }))} language={Language.ES} />;
       case 'cashFlow': return <CashFlow state={state} onAddItem={(i) => setState(prev => ({ ...prev, cashFlowItems: [...prev.cashFlowItems, { ...i, id: crypto.randomUUID() }] }))} onDeleteItem={(id) => setState(prev => ({ ...prev, cashFlowItems: prev.cashFlowItems.filter(i => i.id !== id) }))} onToggleStatus={(id) => setState(prev => ({ ...prev, cashFlowItems: prev.cashFlowItems.map(i => i.id === id ? { ...i, status: i.status === 'pending' ? 'realized' : 'pending' } : i) }))} />;
       case 'budget': return <Budget state={state} onUpdateBudget={(b) => setState(prev => { const idx = prev.budgets.findIndex(x => x.month === b.month); const next = [...prev.budgets]; if (idx >= 0) next[idx] = b; else next.push(b); return { ...prev, budgets: next }; })} />;
-      case 'partners': return <Partners state={state} onAddPartner={(p) => setState(prev => ({ ...prev, partners: [...prev.partners, { ...p, id: crypto.randomUUID() }] }))} onDeletePartner={(id) => setState(prev => ({ ...prev, partners: prev.partners.filter(p => p.id !== id) }))} onAddMovement={(m) => setState(prev => ({ ...prev, partnerMovements: [...prev.partnerMovements, { ...m, id: crypto.randomUUID() }] }))} />;
+      case 'partners': return <Partners state={state} onAddPartner={addPartner} onDeletePartner={deletePartner} onAddMovement={() => {}} />;
+      case 'projects': return <Projects state={state} onAddProject={addProject} onDeleteProject={deleteProject} />;
       case 'taxes': return <Taxes state={state} onAddObligation={(o) => setState(prev => ({ ...prev, taxObligations: [...prev.taxObligations, { ...o, id: crypto.randomUUID() }] }))} onUpdateObligation={(id, up) => setState(prev => ({ ...prev, taxObligations: prev.taxObligations.map(x => x.id === id ? { ...x, ...up } : x) }))} onAddEntry={addEntry} />;
       case 'inventory': return (
         <Inventory 
@@ -185,7 +275,8 @@ const App: React.FC = () => {
     { id: 'journal', label: 'Diario', icon: BookOpen },
     { id: 'cashFlow', label: 'Caja', icon: TrendingUp },
     { id: 'budget', label: 'Presupuesto', icon: Target },
-    { id: 'partners', label: 'Contactos', icon: Users },
+    { id: 'partners', label: 'Clientes', icon: Users },
+    { id: 'projects', label: 'Proyectos', icon: Briefcase },
     { id: 'taxes', label: 'Impuestos', icon: Receipt },
     { id: 'inventory', label: 'Inventario', icon: Package },
     { id: 'reports', label: 'Reportes', icon: PieChart },
@@ -233,6 +324,12 @@ const App: React.FC = () => {
       </aside>
 
       <main className="flex-1 overflow-auto bg-cyber-bg">
+        {isLoadingSupabase && (
+          <div className="absolute top-4 right-4 flex items-center gap-2 bg-primary-500/20 px-3 py-1 rounded-full border border-primary-500/30">
+            <div className="w-2 h-2 bg-primary-500 rounded-full animate-ping" />
+            <span className="text-[10px] font-black uppercase tracking-widest">Sincronizando Cloud</span>
+          </div>
+        )}
         <div className="max-w-6xl mx-auto pb-24 md:pb-8">{renderContent()}</div>
       </main>
 

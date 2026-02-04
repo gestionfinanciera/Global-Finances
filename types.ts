@@ -14,6 +14,9 @@ export enum AccountType {
   EXPENSE = 'Expense'
 }
 
+// Added PartnerType to support client/provider classification
+export type PartnerType = 'client' | 'provider';
+
 export interface Account {
   id: string;
   name: string;
@@ -56,24 +59,40 @@ export interface MonthlyBudget {
   }[];
 }
 
-export type PartnerType = 'client' | 'supplier';
-
+/**
+ * Ajustado para coincidir con la tabla 'clients' de Supabase
+ * Expandido para soportar los campos requeridos por PartnerForm
+ */
 export interface Partner {
   id: string;
-  type: PartnerType;
+  type?: PartnerType;
   name: string;
+  description?: string | null;
   fantasyName?: string;
-  taxId: string;
-  taxCondition: string;
-  address?: string;
-  city?: string;
+  taxId?: string;
+  taxCondition?: string;
+  email?: string;
   phone?: string;
-  email: string;
-  contactPerson?: string;
-  creditLimit: number;
-  creditDays: number;
+  address?: string;
+  creditLimit?: number;
+  creditDays?: number;
   observations?: string;
-  active: boolean;
+  active?: boolean;
+  created_at?: string;
+}
+
+/**
+ * Nueva interfaz para coincidir con la tabla 'projects' de Supabase
+ */
+export interface Project {
+  id: string;
+  client_id: string;
+  name: string;
+  description: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  status: string | null;
+  created_at?: string;
 }
 
 export interface PartnerMovement {
@@ -108,8 +127,6 @@ export interface TaxObligation {
   paymentDate?: string;
   receiptUrl?: string;
 }
-
-// --- Nuevos Tipos para Inventario ---
 
 export interface Product {
   id: string;
@@ -158,6 +175,7 @@ export interface AppState {
   cashFlowItems: CashFlowItem[];
   budgets: MonthlyBudget[];
   partners: Partner[];
+  projects: Project[]; // Nueva sección
   partnerMovements: PartnerMovement[];
   taxConfigs: TaxConfig[];
   taxObligations: TaxObligation[];
