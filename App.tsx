@@ -17,10 +17,11 @@ import {
   Users,
   Receipt,
   Package,
-  Briefcase
+  Briefcase,
+  LogOut,
+  Loader2
 } from 'lucide-react';
 import { AppState, Language, JournalEntry, Partner, Project, Product, StockMovement, TaxConfig } from './types';
-import { translations } from './translations';
 import Dashboard from './components/Dashboard';
 import Journal from './components/Journal';
 import CashFlow from './components/CashFlow';
@@ -36,9 +37,8 @@ import ChatBot from './components/ChatBot';
 import ImageAnalyzer from './components/ImageAnalyzer';
 import Onboarding from './components/Onboarding';
 import Landing from './components/Landing';
-import { supabase, ensureSession } from './lib/supabase';
-
-const STORAGE_KEY = 'global_finances_data_v4';
+import Auth from './components/Auth';
+import { supabase } from './lib/supabase';
 
 const INITIAL_TAX_CONFIGS: TaxConfig[] = [
   { id: 'tax_iva', name: 'IVA', fullName: 'Impuesto al Valor Agregado', category: 'national', frequency: 'monthly', defaultRate: 21, dueDateDay: 11 },
@@ -49,76 +49,69 @@ const INITIAL_TAX_CONFIGS: TaxConfig[] = [
 ];
 
 const App: React.FC = () => {
-  const [state, setState] = useState<AppState>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      return { 
-        ...parsed, 
-        theme: 'dark', 
-        language: Language.ES,
-        products: parsed.products || [],
-        stockMovements: parsed.stockMovements || [],
-        partners: parsed.partners || [],
-        projects: parsed.projects || []
-      };
-    }
-    return {
-      entries: [],
-      cashFlowItems: [],
-      budgets: [],
-      partners: [],
-      projects: [],
-      partnerMovements: [],
-      taxConfigs: INITIAL_TAX_CONFIGS,
-      taxObligations: [],
-      products: [],
-      stockMovements: [],
-      language: Language.ES,
-      theme: 'dark',
-      isOnboarded: false
-    };
+  const [user, setUser] = useState<any>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [state, setState] = useState<AppState>({
+    entries: [],
+    cashFlowItems: [],
+    budgets: [],
+    partners: [],
+    projects: [],
+    partnerMovements: [],
+    taxConfigs: INITIAL_TAX_CONFIGS,
+    taxObligations: [],
+    products: [],
+    stockMovements: [],
+    language: Language.ES,
+    theme: 'dark',
+    isOnboarded: false
   });
 
-  const [showLanding, setShowLanding] = useState(!state.isOnboarded);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [isLoadingSupabase, setIsLoadingSupabase] = useState(false);
 
-  // Inicialización de sesión y carga de datos desde Supabase
+  // Escuchar cambios de autenticación
   useEffect(() => {
-    const initSupabase = async () => {
-      setIsLoadingSupabase(true);
-      await ensureSession();
-      
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        // Cargar Clientes
-        const { data: clients } = await supabase.from('clients').select('*');
-        // Cargar Proyectos
-        const { data: projects } = await supabase.from('projects').select('*');
-        
-        setState(prev => ({
-          ...prev,
-          partners: clients || [],
-          projects: projects || []
-        }));
-      }
-      setIsLoadingSupabase(false);
-    };
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setIsAuthLoading(false);
+    });
 
-    if (!showLanding) {
-      initSupabase();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Cargar datos reales desde Supabase cuando hay usuario
+  useEffect(() => {
+    if (user) {
+      loadUserData();
     }
-  }, [showLanding]);
+  }, [user]);
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    document.documentElement.classList.add('dark');
-  }, [state]);
+  const loadUserData = async () => {
+    setIsAuthLoading(true);
+    const { data: clients } = await supabase.from('clients').select('*');
+    const { data: projects } = await supabase.from('projects').select('*');
+    
+    setState(prev => ({
+      ...prev,
+      partners: clients || [],
+      projects: projects || [],
+      isOnboarded: true // Asumimos onboarded si ya tiene cuenta
+    }));
+    setIsAuthLoading(false);
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+  };
 
   const addEntry = (entry: Omit<JournalEntry, 'id'>) => {
     const newEntry = { ...entry, id: crypto.randomUUID() };
@@ -126,12 +119,10 @@ const App: React.FC = () => {
     setIsEntryModalOpen(false);
   };
 
-  // --- Operaciones Supabase ---
+  // --- Operaciones Cloud (Mandatorias) ---
 
   const addPartner = async (p: Omit<Partner, 'id'>) => {
-    const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-
     const { data, error } = await supabase
       .from('clients')
       .insert([{ name: p.name, description: p.description, user_id: user.id }])
@@ -139,8 +130,6 @@ const App: React.FC = () => {
 
     if (!error && data) {
       setState(prev => ({ ...prev, partners: [...prev.partners, data[0]] }));
-    } else {
-      console.error("Error Supabase Client:", error?.message);
     }
   };
 
@@ -152,9 +141,7 @@ const App: React.FC = () => {
   };
 
   const addProject = async (proj: Omit<Project, 'id'>) => {
-    const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-
     const { data, error } = await supabase
       .from('projects')
       .insert([{ 
@@ -180,61 +167,17 @@ const App: React.FC = () => {
     }
   };
 
-  // --- Otras Operaciones Locales ---
-
-  const addProduct = (p: Omit<Product, 'id'>) => {
-    const newP = { ...p, id: crypto.randomUUID() };
-    setState(prev => ({ ...prev, products: [...prev.products, newP] }));
-  };
-
-  const updateProduct = (id: string, updates: Partial<Product>) => {
-    setState(prev => ({
-      ...prev,
-      products: prev.products.map(p => p.id === id ? { ...p, ...updates } : p)
-    }));
-  };
-
-  const addMovement = (m: Omit<StockMovement, 'id'>) => {
-    const newM = { ...m, id: crypto.randomUUID() };
-    setState(prev => ({
-      ...prev,
-      stockMovements: [...prev.stockMovements, newM],
-      products: prev.products.map(p => {
-        if (p.id === m.productId) {
-          return { ...p, stockActual: m.resultingStock };
-        }
-        return p;
-      })
-    }));
-  };
-
-  const resetData = () => {
-    if (window.confirm("¿Estás seguro? Esto eliminará todo tu historial financiero permanentemente.")) {
-      setState({
-        entries: [],
-        cashFlowItems: [],
-        budgets: [],
-        partners: [],
-        projects: [],
-        partnerMovements: [],
-        taxConfigs: INITIAL_TAX_CONFIGS,
-        taxObligations: [],
-        products: [],
-        stockMovements: [],
-        language: Language.ES,
-        theme: 'dark',
-        isOnboarded: false
-      });
-      setShowLanding(true);
-    }
-  };
-
-  if (showLanding) {
-    return <Landing onStart={() => setShowLanding(false)} />;
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-[#0F0D1E] flex flex-col items-center justify-center gap-4">
+        <Loader2 size={48} className="text-primary-500 animate-spin" />
+        <span className="text-[10px] font-black uppercase tracking-[0.5em] text-slate-500">Global Finances Loading</span>
+      </div>
+    );
   }
 
-  if (!state.isOnboarded) {
-    return <Onboarding onComplete={() => setState(prev => ({ ...prev, isOnboarded: true }))} language={Language.ES} setLanguage={() => {}} />;
+  if (!user) {
+    return <Auth onAuthComplete={() => {}} />;
   }
 
   const renderContent = () => {
@@ -249,19 +192,26 @@ const App: React.FC = () => {
       case 'inventory': return (
         <Inventory 
           state={state} 
-          onAddProduct={addProduct}
-          onUpdateProduct={updateProduct}
-          onAddMovement={addMovement}
+          onAddProduct={(p) => setState(prev => ({ ...prev, products: [...prev.products, { ...p, id: crypto.randomUUID() }] }))}
+          onUpdateProduct={(id, up) => setState(prev => ({ ...prev, products: prev.products.map(x => x.id === id ? { ...x, ...up } : x) }))}
+          onAddMovement={(m) => setState(prev => ({ ...prev, stockMovements: [...prev.stockMovements, { ...m, id: crypto.randomUUID() }] }))}
         />
       );
       case 'reports': return <Reports entries={state.entries} language={Language.ES} />;
       case 'education': return <Education language={Language.ES} />;
       case 'settings': return (
         <div className="p-6 space-y-8 max-w-2xl mx-auto">
-          <h1 className="text-3xl font-bold neon-glow tracking-tighter uppercase italic">Ajustes</h1>
-          <div className="glass p-8 rounded-[2.5rem] shadow-2xl space-y-8 border border-primary-500/20">
-             <button onClick={resetData} className="w-full flex items-center justify-center gap-3 text-rose-500 hover:bg-rose-500/10 p-5 rounded-2xl transition-all font-black uppercase tracking-widest border border-rose-500/20">
-               <Trash2 size={20} /> Reiniciar Datos
+          <h1 className="text-3xl font-bold neon-glow tracking-tighter uppercase italic">Perfil de Usuario</h1>
+          <div className="glass p-8 rounded-[2.5rem] shadow-2xl space-y-8 border border-primary-500/20 text-center">
+             <div className="w-20 h-20 bg-primary-500 rounded-full flex items-center justify-center text-white text-2xl font-black mx-auto mb-4">
+                {user.email?.charAt(0).toUpperCase()}
+             </div>
+             <div>
+                <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Cuenta Activa</p>
+                <p className="text-lg font-bold text-white">{user.email}</p>
+             </div>
+             <button onClick={handleLogout} className="w-full flex items-center justify-center gap-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 p-5 rounded-2xl transition-all font-black uppercase tracking-widest border border-rose-500/20">
+               <LogOut size={20} /> Cerrar Sesión Cloud
              </button>
           </div>
         </div>
@@ -275,7 +225,7 @@ const App: React.FC = () => {
     { id: 'journal', label: 'Diario', icon: BookOpen },
     { id: 'cashFlow', label: 'Caja', icon: TrendingUp },
     { id: 'budget', label: 'Presupuesto', icon: Target },
-    { id: 'partners', label: 'Clientes', icon: Users },
+    { id: 'partners', label: 'Contactos', icon: Users },
     { id: 'projects', label: 'Proyectos', icon: Briefcase },
     { id: 'taxes', label: 'Impuestos', icon: Receipt },
     { id: 'inventory', label: 'Inventario', icon: Package },
@@ -315,21 +265,18 @@ const App: React.FC = () => {
             ))}
           </nav>
 
-          <div className="p-6 border-t border-white/5">
+          <div className="p-6 border-t border-white/5 space-y-4">
             <button onClick={() => setIsEntryModalOpen(true)} className="w-full flex items-center justify-center gap-3 bg-primary-500 hover:bg-primary-700 text-white font-black py-4 px-6 rounded-2xl shadow-2xl shadow-primary-500/20 transition-all transform active:scale-95 uppercase text-xs tracking-[0.2em]">
               <PlusCircle size={20} /> Nuevo Asiento
+            </button>
+            <button onClick={handleLogout} className="w-full flex items-center justify-center gap-3 text-slate-500 hover:text-rose-500 transition-colors uppercase text-[9px] font-black tracking-widest">
+              <LogOut size={14} /> Salir
             </button>
           </div>
         </div>
       </aside>
 
       <main className="flex-1 overflow-auto bg-cyber-bg">
-        {isLoadingSupabase && (
-          <div className="absolute top-4 right-4 flex items-center gap-2 bg-primary-500/20 px-3 py-1 rounded-full border border-primary-500/30">
-            <div className="w-2 h-2 bg-primary-500 rounded-full animate-ping" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Sincronizando Cloud</span>
-          </div>
-        )}
         <div className="max-w-6xl mx-auto pb-24 md:pb-8">{renderContent()}</div>
       </main>
 

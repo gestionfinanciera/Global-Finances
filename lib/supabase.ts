@@ -7,13 +7,9 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 /**
- * Función para asegurar que existe una sesión de usuario para las políticas RLS.
- * Dado que no se requiere login, usamos la autenticación anónima de Supabase.
+ * Obtiene la sesión actual de forma asíncrona.
  */
-export const ensureSession = async () => {
+export const getCurrentSession = async () => {
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-        const { error } = await supabase.auth.signInAnonymously();
-        if (error) console.error("Error en sesión anónima:", error.message);
-    }
+    return session;
 };
