@@ -3,128 +3,76 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { CHART_OF_ACCOUNTS } from "../accounts";
 
 export interface PredictedEntry {
+  date?: string;
   description: string;
+  amount?: number;
   debitParts: { accountId: string; amount: number }[];
   creditParts: { accountId: string; amount: number }[];
   isOpening?: boolean;
 }
 
-/**
- * Servicio centralizado para interactuar con los modelos de Google Gemini.
- * Utiliza exclusivamente process.env.API_KEY.
- */
 export const geminiService = {
-  /**
-   * Chat interactivo con el asesor financiero "Cyber Advisor".
-   * Ideal para consultas complejas de normativa contable o análisis de estados.
-   */
-  async chat(message: string, history: { role: 'user' | 'model', parts: { text: string }[] }[]): Promise<string> {
+  // Chat functionality for the financial assistant
+  async chat(message: string, history: any[]): Promise<string> {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    
     try {
       const response = await ai.models.generateContent({
         model: 'gemini-3-pro-preview',
         contents: [
-          { role: 'user', parts: [{ text: `Sistema: Eres el asesor financiero "Cyber Advisor" de Global Finances. 
-          Tu tono es tecnológico, premium y profesional.
-          Experticia: Contabilidad de partida doble, gestión de impuestos, flujos de caja e inventarios.
-          Reglas: El DEBE aumenta Activos/Gastos. El HABER aumenta Pasivos/Patrimonio/Ingresos.
-          Historial previo: ${JSON.stringify(history)}` }]},
+          { role: 'user', parts: [{ text: `Sistema: Eres "Cyber Advisor". Experto en contabilidad cloud. Historial: ${JSON.stringify(history)}` }]},
           { role: 'user', parts: [{ text: message }]}
-        ],
-        config: {
-          temperature: 0.7,
-          topP: 0.95,
-        }
+        ]
       });
-
-      return response.text || "Lo siento, no pude procesar tu consulta en este momento.";
-    } catch (error: any) {
-      console.error("Gemini Chat Error:", error);
-      return "Error de conexión con el servicio de IA. Asegúrate de que la API Key sea válida.";
+      return response.text || "No hay respuesta.";
+    } catch (e) {
+      console.error(e);
+      return "Error de conexión con Gemini.";
     }
   },
 
-  /**
-   * Automatización de asientos: Predice las cuentas contables basándose en una descripción.
-   * Por ejemplo: "Pago alquiler con transferencia" -> Dr: Alquileres, Cr: Bancos.
-   */
+  // Predicts accounts for a manual entry description
   async predictAccounts(description: string): Promise<PredictedEntry | null> {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const accountContext = CHART_OF_ACCOUNTS.map(a => `${a.id}: ${a.name} (${a.type})`).join(", ");
-
-    const prompt = `Actúa como un contador experto. Analiza: "${description}".
-    Genera un asiento contable balanceado (Debe = Haber).
-    CUENTAS DISPONIBLES: [${accountContext}].
-    Retorna estrictamente un objeto JSON.`;
-
+    const context = CHART_OF_ACCOUNTS.map(a => `${a.id}: ${a.name}`).join(", ");
     try {
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview', 
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        model: 'gemini-3-flash-preview',
+        contents: [{ role: 'user', parts: [{ text: `Analiza: "${description}". Cuentas: [${context}]. Retorna JSON.` }] }],
         config: {
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
             properties: {
               description: { type: Type.STRING },
-              debitParts: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    accountId: { type: Type.STRING },
-                    amount: { type: Type.NUMBER }
-                  },
-                  required: ["accountId", "amount"]
-                }
-              },
-              creditParts: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    accountId: { type: Type.STRING },
-                    amount: { type: Type.NUMBER }
-                  },
-                  required: ["accountId", "amount"]
-                }
-              },
-              isOpening: { type: Type.BOOLEAN }
+              amount: { type: Type.NUMBER },
+              debitParts: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { accountId: { type: Type.STRING }, amount: { type: Type.NUMBER } } } },
+              creditParts: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { accountId: { type: Type.STRING }, amount: { type: Type.NUMBER } } } }
             },
             required: ["description", "debitParts", "creditParts"]
           }
         }
       });
-
-      const text = response.text;
-      return text ? JSON.parse(text) : null;
+      return response.text ? JSON.parse(response.text) : null;
     } catch (e) {
-      console.error("Error en predictAccounts:", e);
       return null;
     }
   },
 
-  /**
-   * Visión Artificial: Analiza imágenes de libros diarios u hojas contables.
-   */
-  async analyzeLedger(base64Image: string): Promise<any[]> {
+  // Analyzes a photo of a journal ledger (multiple entries)
+  async analyzeLedger(base64: string): Promise<PredictedEntry[]> {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const accountContext = CHART_OF_ACCOUNTS.map(a => `${a.id}: ${a.name}`).join(", ");
-
-    const prompt = `Analiza este libro diario. Detecta fecha, descripción y cuentas.
-    Mapea las cuentas a estos IDs: [${accountContext}].
-    Retorna un array JSON de asientos.`;
-
+    const context = CHART_OF_ACCOUNTS.map(a => `${a.id}: ${a.name}`).join(", ");
     try {
       const response = await ai.models.generateContent({
-        model: 'gemini-3-pro-preview',
-        contents: [{
-          parts: [
-            { inlineData: { data: base64Image, mimeType: 'image/jpeg' } },
-            { text: prompt }
-          ]
-        }],
+        model: 'gemini-3-flash-preview',
+        contents: [
+          {
+            parts: [
+              { text: `Analiza esta imagen de un libro diario contable. Extrae cada asiento. Cuentas sugeridas: [${context}]. Retorna un array JSON con campos date, description, amount, debitParts y creditParts.` },
+              { inlineData: { mimeType: 'image/jpeg', data: base64 } }
+            ]
+          }
+        ],
         config: {
           responseMimeType: "application/json",
           responseSchema: {
@@ -134,80 +82,55 @@ export const geminiService = {
               properties: {
                 date: { type: Type.STRING },
                 description: { type: Type.STRING },
-                debitParts: {
-                  type: Type.ARRAY,
-                  items: {
-                    type: Type.OBJECT,
-                    properties: {
-                      accountId: { type: Type.STRING },
-                      amount: { type: Type.NUMBER }
-                    },
-                    required: ["accountId", "amount"]
-                  }
-                },
-                creditParts: {
-                  type: Type.ARRAY,
-                  items: {
-                    type: Type.OBJECT,
-                    properties: {
-                      accountId: { type: Type.STRING },
-                      amount: { type: Type.NUMBER }
-                    },
-                    required: ["accountId", "amount"]
-                  }
-                }
+                amount: { type: Type.NUMBER },
+                debitParts: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { accountId: { type: Type.STRING }, amount: { type: Type.NUMBER } } } },
+                creditParts: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { accountId: { type: Type.STRING }, amount: { type: Type.NUMBER } } } }
               },
-              required: ["date", "description", "debitParts", "creditParts"]
+              required: ["date", "description", "amount", "debitParts", "creditParts"]
             }
           }
         }
       });
-
-      const text = response.text;
-      return text ? JSON.parse(text) : [];
+      return response.text ? JSON.parse(response.text) : [];
     } catch (e) {
-      console.error("Error en analyzeLedger:", e);
+      console.error("Ledger analysis error:", e);
       return [];
     }
   },
 
-  /**
-   * Visión Artificial: Analiza un recibo o ticket de compra individual.
-   */
-  async analyzeReceipt(base64Image: string): Promise<any> {
+  // Analyzes a photo of a single receipt or invoice
+  async analyzeReceipt(base64: string): Promise<PredictedEntry | null> {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
-    const prompt = `Extrae información de este ticket: monto total, fecha, descripción y sugiere un ID de cuenta de gasto (ej: acc_bank, acc_office_supplies).
-    Retorna un JSON.`;
-
+    const context = CHART_OF_ACCOUNTS.map(a => `${a.id}: ${a.name}`).join(", ");
     try {
       const response = await ai.models.generateContent({
-        model: 'gemini-3-pro-preview',
-        contents: [{
-          parts: [
-            { inlineData: { data: base64Image, mimeType: 'image/jpeg' } },
-            { text: prompt }
-          ]
-        }],
+        model: 'gemini-3-flash-preview',
+        contents: [
+          {
+            parts: [
+              { text: `Analiza esta factura o recibo. Extrae la fecha, el monto total y una descripción breve. También sugiere las cuentas contables para un asiento. Cuentas: [${context}]. Retorna JSON con campos date, description, amount, debitParts y creditParts.` },
+              { inlineData: { mimeType: 'image/jpeg', data: base64 } }
+            ]
+          }
+        ],
         config: {
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
             properties: {
-              amount: { type: Type.NUMBER },
               date: { type: Type.STRING },
               description: { type: Type.STRING },
-              recommendedAccount: { type: Type.STRING }
+              amount: { type: Type.NUMBER },
+              debitParts: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { accountId: { type: Type.STRING }, amount: { type: Type.NUMBER } } } },
+              creditParts: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { accountId: { type: Type.STRING }, amount: { type: Type.NUMBER } } } }
             },
-            required: ["amount", "date", "description", "recommendedAccount"]
+            required: ["date", "description", "amount", "debitParts", "creditParts"]
           }
         }
       });
-
-      const text = response.text;
-      return text ? JSON.parse(text) : null;
+      return response.text ? JSON.parse(response.text) : null;
     } catch (e) {
-      console.error("Error en analyzeReceipt:", e);
+      console.error("Receipt analysis error:", e);
       return null;
     }
   }

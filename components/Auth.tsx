@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { auth } from '../lib/firebase';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { LogIn, UserPlus, Loader2, Mail, Lock, ShieldCheck } from 'lucide-react';
 
 interface AuthProps {
@@ -21,12 +22,10 @@ const Auth: React.FC<AuthProps> = ({ onAuthComplete }) => {
 
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        await signInWithEmailAndPassword(auth, email, password);
       } else {
-        const { error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        alert("¡Registro exitoso! Revisa tu email si la confirmación está activa.");
+        await createUserWithEmailAndPassword(auth, email, password);
+        alert("¡Registro exitoso!");
       }
       onAuthComplete();
     } catch (err: any) {
@@ -43,7 +42,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthComplete }) => {
         <div className="text-center mb-10">
           <div className="w-20 h-20 bg-primary-500 rounded-[2rem] flex items-center justify-center text-white font-black text-4xl shadow-2xl shadow-primary-500/30 mx-auto mb-6 rotate-3">G</div>
           <h1 className="text-4xl font-black neon-glow uppercase italic tracking-tighter">Global Finances</h1>
-          <p className="text-slate-500 text-sm font-medium mt-2">Acceso Seguro Supabase Cloud</p>
+          <p className="text-slate-500 text-sm font-medium mt-2">Acceso Cloud Seguro</p>
         </div>
 
         <div className="glass p-8 rounded-[3rem] border border-white/5 shadow-2xl">
@@ -55,11 +54,11 @@ const Auth: React.FC<AuthProps> = ({ onAuthComplete }) => {
           <form onSubmit={handleAuth} className="space-y-6">
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2 pl-1"><Mail size={12} /> Email</label>
-              <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:border-primary-500" />
+              <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:border-primary-500 transition-all" />
             </div>
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2 pl-1"><Lock size={12} /> Contraseña</label>
-              <input required type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:border-primary-500" />
+              <input required type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-white outline-none focus:border-primary-500 transition-all" />
             </div>
             {error && <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-[10px] font-black uppercase text-center">{error}</div>}
             <button disabled={loading} type="submit" className="w-full py-5 bg-primary-600 hover:bg-primary-500 text-white font-black text-xs uppercase shadow-2xl rounded-[2rem] flex items-center justify-center gap-3 transition-all active:scale-95 disabled:opacity-50">
@@ -69,7 +68,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthComplete }) => {
           </form>
           <div className="mt-8 pt-8 border-t border-white/5 flex items-center justify-center gap-2 text-slate-600">
             <ShieldCheck size={14} />
-            <span className="text-[9px] font-black uppercase tracking-widest">Powered by Supabase Engine</span>
+            <span className="text-[9px] font-black uppercase tracking-widest">Firebase Certified Security</span>
           </div>
         </div>
       </div>
